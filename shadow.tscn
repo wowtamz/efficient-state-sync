@@ -1,0 +1,57 @@
+[gd_scene load_steps=3 format=3 uid="uid://ddp6wlxjov6ll"]
+
+[ext_resource type="Texture2D" uid="uid://g57nmh0fwuva" path="res://icon.svg" id="1_6pqxc"]
+
+[sub_resource type="GDScript" id="GDScript_6pqxc"]
+script/source = "extends Sprite2D
+
+var states: Dictionary = {
+	0: Color.WHITE,
+	1: Color.RED,
+	2: Color.GREEN,
+	3: Color.BLUE,
+	4: Color.YELLOW,
+	5: Color.PINK
+}
+
+var state: int = 0 : set = set_state
+
+func on_receive_packet(packet: PackedByteArray) -> void:
+	
+	var state_data: StateData = StateData.from_bytes(packet)
+	
+	var pos_x = null
+	var pos_y = null
+	var rot = null
+	var _state = null
+	
+	var data = state_data.data
+	var map = state_data.map
+	for i in map:
+		match i:
+			StateData.POSX:
+				pos_x = data.pop_front()
+			StateData.POSY:
+				pos_y = data.pop_front()
+			StateData.ROT:
+				rot = data.pop_front()
+			StateData.STATE:
+				_state = data.pop_front()
+	
+	if pos_x:
+		position.x = pos_x + (get_viewport_rect().size.x / 2) - 64
+	if pos_y:
+		position.y = pos_y
+	if rot:
+		rotation = rot
+	if _state:
+		state = _state
+
+func set_state(new_state: int) -> void:
+	modulate = states[new_state]
+"
+
+[node name="shadow" type="Sprite2D"]
+modulate = Color(1, 1, 1, 0.596078)
+texture = ExtResource("1_6pqxc")
+script = SubResource("GDScript_6pqxc")
