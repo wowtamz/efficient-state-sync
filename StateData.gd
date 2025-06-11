@@ -38,10 +38,10 @@ func to_bytes() -> PackedByteArray:
 	for val in data:
 		if typeof(val) == TYPE_FLOAT:
 			buffer.put_half(val)
-		if typeof(val) == TYPE_INT:
+		elif typeof(val) == TYPE_INT:
 			buffer.put_u8(val)
 		else:
-			printerr("Unsupported data type while writing to byte array.")
+			printerr("Unsupported data type '%s' with value '%s' while writing to byte array." % [typeof(val), str(val)])
 			
 	return buffer.data_array
 
