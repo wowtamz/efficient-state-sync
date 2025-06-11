@@ -1,0 +1,73 @@
+[gd_scene load_steps=3 format=3 uid="uid://6kqe5s0g3yc4"]
+
+[ext_resource type="Texture2D" uid="uid://g57nmh0fwuva" path="res://icon.svg" id="1_btf8p"]
+
+[sub_resource type="GDScript" id="GDScript_btf8p"]
+script/source = "extends Sprite2D
+
+var movement_area = Vector2(1270, 720)
+var move_dir = Vector2(1, 1)
+var move_speed = 250
+
+var state: int = 0
+
+var _ticks: int = 1
+var _counter: float = 0.0
+
+var last_pos_x: float = 0.0
+var last_pos_y: float = 0.0
+var last_rot: float = 0.0
+var last_state: int = 0
+
+func _ready() -> void:
+	move_dir = Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0))
+	move_dir = move_dir.normalized()
+	get_viewport().connect(\"size_changed\", Callable(self, \"on_viewport_size_changed\"))
+	on_viewport_size_changed()
+
+func on_viewport_size_changed() -> void:
+	movement_area.x = (get_viewport_rect().size.x / 2) - 64
+
+func _process(delta: float) -> void:
+	process_state_sync()
+	process_movement(delta)
+
+func process_state_sync() -> void:
+	var state_data: Array = []
+	var state_map: PackedInt32Array = []
+	if position.x != last_pos_x:
+		state_data.append(position.x)
+		state_map.append(StateData.POSX)
+		last_pos_x = position.x
+	if position.y != last_pos_y:
+		state_data.append(position.y)
+		state_map.append(StateData.POSY)
+		last_pos_y = position.x
+	if rotation != last_rot:
+		state_data.append(rotation)
+		state_map.append(StateData.ROT)
+		last_rot = rotation
+	if state != last_state:
+		state_data.append(state)
+		state_map.append(StateData.STATE)
+		last_state = state
+	
+	var packet = StateData.new(state_data, state_map)
+	send_packet(packet)
+
+func send_packet(packet: StateData) -> void:
+	var byte_array: PackedByteArray = packet.to_bytes()
+	get_parent().add_sent_bytes(byte_array.size())
+
+func process_movement(delta: float) -> void:
+	position += move_dir * move_speed * delta
+	if position.x > movement_area.x or position.x < 0:
+		move_dir.x *= -1
+	if position.y > movement_area.y or position.y < 0:
+		move_dir.y *= -1
+"
+
+[node name="Unit" type="Sprite2D"]
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("1_btf8p")
+script = SubResource("GDScript_btf8p")
