@@ -5,14 +5,30 @@
 [sub_resource type="GDScript" id="GDScript_btf8p"]
 script/source = "extends Sprite2D
 
+var states: Dictionary = {
+	0: Color.WHITE,
+	1: Color.RED,
+	2: Color.GREEN,
+	3: Color.BLUE,
+	4: Color.YELLOW,
+	5: Color.PINK
+}
+
 var movement_area = Vector2(1270, 720)
-var move_dir = Vector2(1, 1)
+var move_dir = Vector2(0, 0)
 var move_speed = 250
 
 var state: int = 0
+var changes_state: bool = false
+var move_vertially: bool = false
+var move_horizontally: bool = false
 
-var _ticks: int = 1
+var _angle: float = 0.0
+var _ticks: int = 10
 var _counter: float = 0.0
+
+var _send_rate: int = 30
+var _counter2: float = 0.0
 
 var last_pos_x: float = 0.0
 var last_pos_y: float = 0.0
@@ -20,51 +36,97 @@ var last_rot: float = 0.0
 var last_state: int = 0
 
 func _ready() -> void:
-	move_dir = Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0))
-	move_dir = move_dir.normalized()
 	get_viewport().connect(\"size_changed\", Callable(self, \"on_viewport_size_changed\"))
 	on_viewport_size_changed()
 
 func on_viewport_size_changed() -> void:
 	movement_area.x = (get_viewport_rect().size.x / 2) - 64
+	movement_area.y = get_viewport_rect().size.y
+
+func change_state() -> void:
+	state += 1
+	state = state % states.keys().size()
+	modulate = states[state]
+
+func set_change_state(val: bool) -> void:
+	changes_state = val
+
+func apply_rotation(val: bool) -> void:
+	_angle = randf_range(1.0, 10.0) if val else 0.0
+
+func set_move_vertially(val: bool) -> void:
+	move_dir.y = randf_range(-1.0, 1.0) if val else 0.0
+	move_dir = move_dir.normalized()
+	move_vertially = val
+
+func set_move_horizontally(val: bool) -> void:
+	move_dir.x = randf_range(-1.0, 1.0) if val else 0.0
+	move_dir = move_dir.normalized()
+	move_horizontally = val
+
+func set_send_rate(val: int) -> void:
+	_send_rate = val
 
 func _process(delta: float) -> void:
-	process_state_sync()
+	process_states(delta)
+	process_state_sync(delta)
 	process_movement(delta)
+	process_rotation(delta)
 
-func process_state_sync() -> void:
-	var state_data: Array = []
-	var state_map: PackedInt32Array = []
-	if position.x != last_pos_x:
-		state_data.append(position.x)
-		state_map.append(StateData.POSX)
-		last_pos_x = position.x
-	if position.y != last_pos_y:
-		state_data.append(position.y)
-		state_map.append(StateData.POSY)
-		last_pos_y = position.x
-	if rotation != last_rot:
-		state_data.append(rotation)
-		state_map.append(StateData.ROT)
-		last_rot = rotation
-	if state != last_state:
-		state_data.append(state)
-		state_map.append(StateData.STATE)
-		last_state = state
-	
-	var packet = StateData.new(state_data, state_map)
-	send_packet(packet)
+func process_states(delta: float) -> void:
+	if changes_state:
+		_counter += delta
+		if _counter > 1.0 / float(_ticks):
+			_counter = 0.0
+			change_state()
+
+func process_state_sync(delta: float) -> void:
+	_counter2 += delta
+	if _counter2 > 1.0 / float(_send_rate):
+		_counter2 = 0.0
+		var state_data: Array = []
+		var state_map: PackedInt32Array = []
+		if position.x != last_pos_x:
+			state_data.append(position.x)
+			state_map.append(StateData.POSX)
+			last_pos_x = position.x
+		if position.y != last_pos_y:
+			state_data.append(position.y)
+			state_map.append(StateData.POSY)
+			last_pos_y = position.y
+		if rotation != last_rot:
+			state_data.append(rotation)
+			state_map.append(StateData.ROT)
+			last_rot = rotation
+		if state != last_state:
+			state_data.append(state)
+			state_map.append(StateData.STATE)
+			last_state = state
+		
+		if state_data.size() > 0:
+			print(state_data)
+			var packet = StateData.new(state_data, state_map)
+			send_packet(packet)
 
 func send_packet(packet: StateData) -> void:
 	var byte_array: PackedByteArray = packet.to_bytes()
 	get_parent().add_sent_bytes(byte_array.size())
+	get_parent().get_node(\"shadow\").on_receive_packet(byte_array)
 
 func process_movement(delta: float) -> void:
-	position += move_dir * move_speed * delta
+	
+	if move_horizontally or move_vertially:
+		position += move_dir * move_speed * delta
 	if position.x > movement_area.x or position.x < 0:
 		move_dir.x *= -1
-	if position.y > movement_area.y or position.y < 0:
+	if position.y > movement_area.y or position.y < 64:
 		move_dir.y *= -1
+
+func process_rotation(delta: float) -> void:
+	if _angle > 0.0:
+		rotation += _angle * delta
+		if rotation > 360:
+			rotation -= 360
 "
 
 [node name="Unit" type="Sprite2D"]
