@@ -52,8 +52,12 @@ static func from_bytes(bytes: PackedByteArray) -> StateData:
 	var decoded_map: PackedInt32Array = StateData.bits_to_map(buffer.get_u8())
 	var decoded_data: Array = []
 	for i in decoded_map:
-		var value = buffer.get_u8() if i == STATE else buffer.get_half()
-		decoded_data.append(value)
+		@warning_ignore("incompatible_ternary")
+		var val: Variant = buffer.get_u8() if i == STATE else buffer.get_half()
+		if typeof(val) == TYPE_FLOAT:
+			var step = 0.1
+			val = snappedf(val, step) # Rounds the decoded float values to the nearest multiple of step
+		decoded_data.append(val)
 	
 	return StateData.new(decoded_data, decoded_map)
 
