@@ -24,14 +24,40 @@ const POSY = 1
 const ROT = 2
 const STATE = 3
 
-var data: PackedFloat32Array = []
+var data: Array = []
 var map: PackedInt32Array = []
 
-func _init(_data: PackedFloat32Array, _map: PackedInt32Array = []) -> void:
+func _init(_data: Array, _map: PackedInt32Array = []) -> void:
 	data = _data
 	map = _map.slice(0, 4)
 
-func bits_to_map(n: int) -> PackedInt32Array:
+func to_bytes() -> PackedByteArray:
+	var buffer := StreamPeerBuffer.new()
+	var map_as_bits = map_to_bits()
+	buffer.put_u8(map_as_bits)
+	for val in data:
+		if typeof(val) == TYPE_FLOAT:
+			buffer.put_half(val)
+		if typeof(val) == TYPE_INT:
+			buffer.put_u8(val)
+		else:
+			printerr("Unsupported data type while writing to byte array.")
+			
+	return buffer.data_array
+
+static func from_bytes(bytes: PackedByteArray) -> StateData:
+	var buffer := StreamPeerBuffer.new()
+	buffer.data_array = bytes
+	
+	var decoded_map: PackedInt32Array = StateData.bits_to_map(buffer.get_u8())
+	var decoded_data: Array = []
+	for i in decoded_map:
+		var value = buffer.get_u8() if i == STATE else buffer.get_half()
+		decoded_data.append(value)
+	
+	return StateData.new(decoded_data, decoded_map)
+
+static func bits_to_map(n: int) -> PackedInt32Array:
 	var res: PackedInt32Array = []
 	for i in range(BIT_COUNT):
 		var bit = (n >> i) & 1
