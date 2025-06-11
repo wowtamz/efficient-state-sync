@@ -15,7 +15,9 @@ class_name StateData
 ## Map bit structure:
 ## Value 1 if data contains value for that index, 0 if otherwise
 ## [POSX, POSY, ROT, STATE]
-## Example: [0, 1, 0, 0] -> Only contains POSY data 
+## Example: [0, 1, 0, 0] -> Only contains POSY data
+
+const BIT_COUNT = 4
 
 const POSX = 0
 const POSY = 1
@@ -27,13 +29,21 @@ var map: PackedInt32Array = []
 
 func _init(_data: PackedFloat32Array, _map: PackedInt32Array = []) -> void:
 	data = _data
-	map = _map
+	map = _map.slice(0, 4)
+
+func bits_to_map(n: int) -> PackedInt32Array:
+	var res: PackedInt32Array = []
+	for i in range(BIT_COUNT):
+		var bit = (n >> i) & 1
+		if bit:
+			res.append(i)
+	return res
 
 func map_to_bits() -> int:
-	var result: int = 0
+	var res: int = 0
 	for val in map:
-		result = write_bit(result, val, 1)
-	return 0 if map.is_empty() else result
+		res = write_bit(res, val, 1)
+	return 0 if map.is_empty() else res
 
 func write_bit(to: int, bit_index: int, val: int) -> int:
 	if val == 1:
