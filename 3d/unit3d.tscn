@@ -1,0 +1,165 @@
+[gd_scene load_steps=4 format=3 uid="uid://6obhswiy5rre"]
+
+[sub_resource type="GDScript" id="GDScript_3wnp8"]
+script/source = "extends Node3D
+
+var states: Dictionary = {
+	0: Color.WHITE,
+	1: Color.RED,
+	2: Color.GREEN,
+	3: Color.BLUE,
+	4: Color.YELLOW,
+	5: Color.PINK
+}
+
+var movement_area = Vector3(4, 4, 4)
+var move_dir = Vector3(0, 0, 0)
+var move_speed = 2
+
+var state: int = 0
+var changes_state: bool = false
+var move_vertially: bool = false
+var move_horizontally: bool = false
+var move_depthwise: bool = false
+
+var _angle_x: float = 0.0
+var _angle_y: float = 0.0
+var _angle_z: float = 0.0
+
+var _ticks: int = 10
+var _counter: float = 0.0
+
+var _send_rate: int = 30
+var _counter2: float = 0.0
+
+var last_pos_x: float = 0.0
+var last_pos_y: float = 0.0
+var last_pos_z: float = 0.0
+var last_rot_x: float = 0.0
+var last_rot_y: float = 0.0
+var last_rot_z: float = 0.0
+var last_state: int = 0
+
+func _ready() -> void:
+	pass
+
+func change_state() -> void:
+	state += 1
+	state = state % states.keys().size()
+	$MeshInstance3D.mesh.material.albedo_color = states[state]
+
+func set_change_state(val: bool) -> void:
+	changes_state = val
+
+func apply_rotation_x(val: bool) -> void:
+	_angle_x = randf_range(1.0, 10.0) if val else 0.0
+
+func apply_rotation_y(val: bool) -> void:
+	_angle_y = randf_range(1.0, 10.0) if val else 0.0
+
+func apply_rotation_z(val: bool) -> void:
+	_angle_z = randf_range(1.0, 10.0) if val else 0.0
+
+func set_move_vertially(val: bool) -> void:
+	move_dir.y = randf_range(-1.0, 1.0) if val else 0.0
+	move_dir = move_dir.normalized()
+	move_vertially = val
+
+func set_move_horizontally(val: bool) -> void:
+	move_dir.x = randf_range(-1.0, 1.0) if val else 0.0
+	move_dir = move_dir.normalized()
+	move_horizontally = val
+
+func set_move_depthwise(val: bool) -> void:
+	move_dir.z = randf_range(-1.0, 1.0) if val else 0.0
+	move_dir = move_dir.normalized()
+	move_depthwise = val
+
+func set_send_rate(val: int) -> void:
+	_send_rate = val
+
+func _process(delta: float) -> void:
+	process_states(delta)
+	process_state_sync(delta)
+	process_movement(delta)
+	process_rotation(delta)
+
+func process_states(delta: float) -> void:
+	if changes_state:
+		_counter += delta
+		if _counter > 1.0 / float(_ticks):
+			_counter = 0.0
+			change_state()
+
+func process_state_sync(delta: float) -> void:
+	_counter2 += delta
+	if _counter2 > 1.0 / float(_send_rate):
+		_counter2 = 0.0
+		
+		var packet = StateData3D.new()
+		
+		var values = [state, position.x, position.y, position.z,
+			rotation.x, rotation.y, rotation.z]
+		
+		var indicies = [StateData3D.STATE, StateData3D.POS_X, StateData3D.POS_Y,
+			StateData3D.POS_Z, StateData3D.ROT_X, StateData3D.ROT_Y, StateData3D.ROT_Z]
+		
+		var last_values = [\"last_state\", \"last_pos_x\", \"last_pos_y\", \"last_pos_z\",
+			\"last_rot_x\", \"last_rot_y\", \"last_rot_z\"]
+		
+		for i in range(values.size()):
+			var val = values[i]
+			var index = indicies[i]
+			var last_val = last_values[i]
+			
+			if val != get(last_val):
+				packet.append(index, val)
+				set(last_val, val)
+		
+		if packet.has_data():
+			send_packet(packet)
+
+func send_packet(packet: StateData) -> void:
+	var byte_array: PackedByteArray = packet.to_bytes()
+	get_parent().get_parent().add_sent_bytes(byte_array.size())
+	get_parent().get_node(\"shadow\").on_receive_packet(byte_array)
+
+func process_movement(delta: float) -> void:
+	
+	if move_horizontally or move_vertially or move_depthwise:
+		position += move_dir * move_speed * delta
+	if position.x > movement_area.x or position.x < 0:
+		move_dir.x *= -1
+	if position.y > movement_area.y or position.y < 0:
+		move_dir.y *= -1
+	if position.z > movement_area.z or position.z < 0:
+		move_dir.z *= -1
+		
+
+func process_rotation(delta: float) -> void:
+	if _angle_x > 0.0:
+		rotation.x += _angle_x * delta
+		if rotation.x > 360:
+			rotation.x -= 360
+	
+	if _angle_y > 0.0:
+		rotation.y += _angle_y * delta
+		if rotation.y > 360:
+			rotation.y -= 360
+	
+	if _angle_z > 0.0:
+		rotation.z += _angle_z * delta
+		if rotation.z > 360:
+			rotation.y -= 360
+"
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_3wnp8"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_3wnp8"]
+material = SubResource("StandardMaterial3D_3wnp8")
+
+[node name="Unit3d" type="Node3D"]
+script = SubResource("GDScript_3wnp8")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_3wnp8")

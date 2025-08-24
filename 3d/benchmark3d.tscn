@@ -1,0 +1,145 @@
+[gd_scene load_steps=4 format=3 uid="uid://deej8r8b345l4"]
+
+[ext_resource type="PackedScene" uid="uid://6obhswiy5rre" path="res://3d/unit3d.tscn" id="1_kujka"]
+[ext_resource type="PackedScene" uid="uid://1smt4uyggw43" path="res://3d/shadow3d.tscn" id="2_oqfq0"]
+
+[sub_resource type="GDScript" id="GDScript_5df01"]
+script/source = "extends Control
+
+var sent_bytes: int = 0
+
+var _counter: float = 0.0
+
+func _ready() -> void:
+	connect_buttons()
+
+func connect_buttons() -> void:
+	$ui/b_vert.connect(\"toggled\", Callable($world/Unit, \"set_move_vertially\"))
+	$ui/b_hor.connect(\"toggled\", Callable($world/Unit, \"set_move_horizontally\"))
+	$ui/b_depth.connect(\"toggled\", Callable($world/Unit, \"set_move_depthwise\"))
+	$ui/b_state.connect(\"toggled\", Callable($world/Unit, \"set_change_state\"))
+	$ui/b_rot_x.connect(\"toggled\", Callable($world/Unit, \"apply_rotation_x\"))
+	$ui/b_rot_y.connect(\"toggled\", Callable($world/Unit, \"apply_rotation_y\"))
+	$ui/b_rot_z.connect(\"toggled\", Callable($world/Unit, \"apply_rotation_z\"))
+	
+	$ui/b_packet_count/spinbox.connect(\"value_changed\", Callable($world/Unit, \"set_send_rate\"))
+
+func on_change_state_pressed(toggled: bool) -> void:
+	$Unit.changes_state = toggled
+
+func _process(delta: float) -> void:
+	process_send_rate(delta)
+
+func process_send_rate(delta: float) -> void:
+	_counter += delta
+	if _counter >= 1.0:
+		var bits_per_sec = sent_bytes * 8
+		$ui/bps.text = \"%.2f kbits/sec\" % (float(bits_per_sec) / 1000.0) if bits_per_sec > 500 else \"%d bits/sec\" % bits_per_sec
+		sent_bytes = 0.0
+		_counter = 0.0
+
+func add_sent_bytes(amount: int) -> void:
+	sent_bytes += amount
+
+func get_sent_bits() -> int:
+	return sent_bytes * 8
+"
+
+[node name="benchmark" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = SubResource("GDScript_5df01")
+
+[node name="ui" type="GridContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 82.0
+grow_horizontal = 2
+size_flags_horizontal = 4
+columns = 8
+
+[node name="bps" type="Label" parent="ui"]
+custom_minimum_size = Vector2(128, 0)
+layout_mode = 2
+text = "kbits/sec"
+
+[node name="vsep" type="VSeparator" parent="ui"]
+layout_mode = 2
+
+[node name="b_vert" type="Button" parent="ui"]
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+text = "Move vertically"
+
+[node name="b_hor" type="Button" parent="ui"]
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+text = "Move horizontally"
+
+[node name="b_depth" type="Button" parent="ui"]
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+text = "Move depthwise"
+
+[node name="b_state" type="Button" parent="ui"]
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+text = "Change state"
+
+[node name="b_rot_x" type="Button" parent="ui"]
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+text = "Rot X
+"
+
+[node name="b_rot_y" type="Button" parent="ui"]
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+text = "Rot Y
+"
+
+[node name="b_rot_z" type="Button" parent="ui"]
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+text = "Rot Z"
+
+[node name="vsep2" type="VSeparator" parent="ui"]
+layout_mode = 2
+
+[node name="b_packet_count" type="HBoxContainer" parent="ui"]
+layout_mode = 2
+
+[node name="label" type="Label" parent="ui/b_packet_count"]
+layout_mode = 2
+text = "packets/sec"
+
+[node name="spinbox" type="SpinBox" parent="ui/b_packet_count"]
+layout_mode = 2
+value = 30.0
+
+[node name="world" type="Node3D" parent="."]
+
+[node name="Camera3D" type="Camera3D" parent="world"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 7.99024)
+current = true
+
+[node name="Unit" parent="world" instance=ExtResource("1_kujka")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0)
+
+[node name="shadow" parent="world" instance=ExtResource("2_oqfq0")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0)
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="world"]
+transform = Transform3D(0.981019, 0, -0.193909, 0, 1, 0, 0.193909, 0, 0.981019, -4.45038, 0, 0)
