@@ -1,41 +1,67 @@
 class_name StateData
-## StateData is an efficiently data structure which
-## encodes position, rotation and state for sending
-## it over the network with as little size as possible.
+## Base class for state data encoding.
 ##
-## To save bandwidth only values that change should be
-## updated. This requires a map value which determines
-## to which attribute each values should be mapped to.
+## A compact data structure for encoding state
+## and any other attributes for network transmission.
+## It aims to minimize size to reduce bandwidth usage
+## by updating only values that have changed, a "map" 
+## value is used to indicate which attributes the provided 
+## values correspond to.
 ##
-## Byte array structure:
-## values:		[map, pos_x, pos_y, rot, state]
-## datatypes: 	[uint8, float16, float16, float16, uint8]
-## max size: 64 bits
+# Byte array structure:
+#   Values:    [map, state, val_1, val_2, val_3]
+#   Types:     [uint8, uint8, float16, float16, float16]
+#   Max size:  64 bits
+#
+# The map is a bitstring (array of 0s and 1s) where each position 
+# corresponds to an index in the data array:
+#   - '1' means the value is present in the data
+#   - '0' means the value is missing
+#
+# Examples:
+#   Data: [state, val_1, val_2]   Map: [1, 1, 1]   # all values present
+#   Data: [val_1]                 Map: [0, 1, 0]   # only val_1 present
+#   Data: [state, val_2]          Map: [1, 0, 1]   # state and val_2 present
 
-## Map bit structure:
-## Value 1 if data contains value for that index, 0 if otherwise
-## [POSX, POSY, ROT, STATE]
-## Example: [0, 1, 0, 0] -> Only contains POSY data
+ ## Index of the state value.
+const STATE = 0
 
-const BIT_COUNT = 4
+## Contains the state values.
+var _data: Array = []
+## Indicies of the state values
+var _map: PackedInt32Array = []
 
-const POSX = 0
-const POSY = 1
-const ROT = 2
-const STATE = 3
+## Creates a new [StateData] object with passed values for [member StateData.data] and [member StateData.map]
+## with [member StateData.map] resized to a length of [param _encoded_bits].
+func _init(data: Array = [], map: PackedInt32Array = [], _encoded_bits: int = 4) -> void:
+	_data = data
+	_map = map.slice(0, _encoded_bits)
 
-var data: Array = []
-var map: PackedInt32Array = []
+## Appends an [param index] and the [param value] to the
+## [member StateData.map] and [member StateData.data]
+## attributes respectively
+func append(index: int, value: Variant):
+	_map.append(index)
+	_data.append(value)
 
-func _init(_data: Array, _map: PackedInt32Array = []) -> void:
-	data = _data
-	map = _map.slice(0, 4)
+## Returns true if [member StateDate.data] contains at least an element.
+func has_data() -> bool:
+	return not _data.is_empty()
 
+## Returns [member _data] attribute of this [StateData].
+func get_data() -> Array:
+	return _data
+
+## Returns [member _map] attribute of this [StateData]
+func get_map() -> PackedInt32Array:
+	return _map
+
+## Returns this [StateData] as a [PackedByteArray].
 func to_bytes() -> PackedByteArray:
 	var buffer := StreamPeerBuffer.new()
 	var map_as_bits = map_to_bits()
 	buffer.put_u8(map_as_bits)
-	for val in data:
+	for val in _data:
 		if typeof(val) == TYPE_FLOAT:
 			buffer.put_half(val)
 		elif typeof(val) == TYPE_INT:
@@ -45,36 +71,42 @@ func to_bytes() -> PackedByteArray:
 			
 	return buffer.data_array
 
-static func from_bytes(bytes: PackedByteArray) -> StateData:
+## Returns [param bytes] as a new [StateData] object. [br]
+## With [param encoded_bits] specifying the maximum possbile values encoded in [member StateDate.map].
+static func from_bytes(bytes: PackedByteArray, encoded_bits: int = 4) -> StateData:
 	var buffer := StreamPeerBuffer.new()
 	buffer.data_array = bytes
 	
-	var decoded_map: PackedInt32Array = StateData.bits_to_map(buffer.get_u8())
+	var decoded_map: PackedInt32Array = StateData.bits_to_map(buffer.get_u8(), encoded_bits)
 	var decoded_data: Array = []
 	for i in decoded_map:
 		@warning_ignore("incompatible_ternary")
 		var val: Variant = buffer.get_u8() if i == STATE else buffer.get_half()
 		if typeof(val) == TYPE_FLOAT:
 			var step = 0.1
-			val = snappedf(val, step) # Rounds the decoded float values to the nearest multiple of step
+			## Round decoded float values to the nearest multiple of step
+			val = snappedf(val, step)
 		decoded_data.append(val)
 	
 	return StateData.new(decoded_data, decoded_map)
 
-static func bits_to_map(n: int) -> PackedInt32Array:
+## Converts [int]-bitstring into a [PackedInt32Array] with data indicies.
+static func bits_to_map(n: int, bit_count: int) -> PackedInt32Array:
 	var res: PackedInt32Array = []
-	for i in range(BIT_COUNT):
+	for i in range(bit_count):
 		var bit = (n >> i) & 1
 		if bit:
 			res.append(i)
 	return res
 
+## Converts [PackedInt32Array] with data indicies into a [int]-bitstring.
 func map_to_bits() -> int:
 	var res: int = 0
-	for val in map:
+	for val in _map:
 		res = write_bit(res, val, 1)
-	return 0 if map.is_empty() else res
+	return 0 if _map.is_empty() else res
 
+## Writes a bit [param val] to an [int] [param to] at index [param bit_index].
 func write_bit(to: int, bit_index: int, val: int) -> int:
 	if val == 1:
 		to |= (val << bit_index)
