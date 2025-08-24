@@ -84,28 +84,23 @@ func process_state_sync(delta: float) -> void:
 	_counter2 += delta
 	if _counter2 > 1.0 / float(_send_rate):
 		_counter2 = 0.0
-		var state_data: Array = []
-		var state_map: PackedInt32Array = []
+		
+		var packet = StateData2D.new()
+		
+		if state != last_state:
+			packet.append(StateData2D.STATE, state)
+			last_state = state
 		if position.x != last_pos_x:
-			state_data.append(position.x)
-			state_map.append(StateData.POSX)
+			packet.append(StateData2D.POS_X, position.x)
 			last_pos_x = position.x
 		if position.y != last_pos_y:
-			state_data.append(position.y)
-			state_map.append(StateData.POSY)
+			packet.append(StateData2D.POS_Y, position.y)
 			last_pos_y = position.y
 		if rotation != last_rot:
-			state_data.append(rotation)
-			state_map.append(StateData.ROT)
+			packet.append(StateData2D.ROT, rotation)
 			last_rot = rotation
-		if state != last_state:
-			state_data.append(state)
-			state_map.append(StateData.STATE)
-			last_state = state
 		
-		if state_data.size() > 0:
-			print(state_data)
-			var packet = StateData.new(state_data, state_map)
+		if packet.has_data():
 			send_packet(packet)
 
 func send_packet(packet: StateData) -> void:

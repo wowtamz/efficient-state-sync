@@ -1,0 +1,79 @@
+[gd_scene load_steps=4 format=3 uid="uid://1smt4uyggw43"]
+
+[sub_resource type="GDScript" id="GDScript_shm6d"]
+script/source = "extends Node3D
+
+var states: Dictionary = {
+	0: Color.WHITE,
+	1: Color.RED,
+	2: Color.GREEN,
+	3: Color.BLUE,
+	4: Color.YELLOW,
+	5: Color.PINK
+}
+
+var state: int = 0 : set = set_state
+
+func on_receive_packet(packet: PackedByteArray) -> void:
+	var state_data: StateData = StateData3D.from_bytes(packet)
+	
+	var pos_x = null
+	var pos_y = null
+	var pos_z = null
+	var rot_x = null
+	var rot_y = null
+	var rot_z = null
+	
+	var _state = null
+	
+	var data = state_data.get_data()
+	var map = state_data.get_map()
+	for i in map:
+		match i:
+			StateData3D.POS_X:
+				pos_x = data.pop_front()
+			StateData3D.POS_Y:
+				pos_y = data.pop_front()
+			StateData3D.POS_Z:
+				pos_z = data.pop_front()
+			StateData3D.ROT_X:
+				rot_x = data.pop_front()
+			StateData3D.ROT_Y:
+				rot_y = data.pop_front()
+			StateData3D.ROT_Z:
+				rot_z = data.pop_front()
+			StateData3D.STATE:
+				_state = data.pop_front()
+	
+	if pos_x:
+		position.x = -4.0 + pos_x
+	if pos_y:
+		position.y = pos_y
+	if pos_z:
+		position.z = pos_z
+	if rot_x:
+		rotation.x = rot_x
+	if rot_y:
+		rotation.y = rot_y
+	if rot_z:
+		rotation.z = rot_z
+	if _state:
+		state = _state
+
+func set_state(new_state: int) -> void:
+	$MeshInstance3D.mesh.material.albedo_color = states[new_state]
+"
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_shm6d"]
+transparency = 1
+blend_mode = 1
+albedo_color = Color(1, 1, 1, 0.8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_gt6dh"]
+material = SubResource("StandardMaterial3D_shm6d")
+
+[node name="shadow" type="Node3D"]
+script = SubResource("GDScript_shm6d")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_gt6dh")

@@ -18,24 +18,24 @@ var state: int = 0 : set = set_state
 
 func on_receive_packet(packet: PackedByteArray) -> void:
 	
-	var state_data: StateData = StateData.from_bytes(packet)
+	var state_data: StateData = StateData2D.from_bytes(packet)
 	
 	var pos_x = null
 	var pos_y = null
 	var rot = null
 	var _state = null
 	
-	var data = state_data.data
-	var map = state_data.map
+	var data = state_data.get_data()
+	var map = state_data.get_map()
 	for i in map:
 		match i:
-			StateData.POSX:
+			StateData2D.POS_X:
 				pos_x = data.pop_front()
-			StateData.POSY:
+			StateData2D.POS_Y:
 				pos_y = data.pop_front()
-			StateData.ROT:
+			StateData2D.ROT:
 				rot = data.pop_front()
-			StateData.STATE:
+			StateData2D.STATE:
 				_state = data.pop_front()
 	
 	if pos_x:

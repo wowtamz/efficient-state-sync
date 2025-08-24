@@ -11,5 +11,10 @@ config_version=5
 [application]
 
 config/name="Efficient State Sync"
+run/main_scene="uid://dx11sgjuj2s2j"
 config/features=PackedStringArray("4.4", "Forward Plus")
 config/icon="res://icon.svg"
+
+[autoload]
+
+UnitTests="*res://UnitTests.gd"
