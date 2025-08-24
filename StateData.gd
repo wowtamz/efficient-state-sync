@@ -88,7 +88,7 @@ static func from_bytes(bytes: PackedByteArray, encoded_bits: int = 4) -> StateDa
 			val = snappedf(val, step)
 		decoded_data.append(val)
 	
-	return StateData.new(decoded_data, decoded_map)
+	return StateData.new(decoded_data, decoded_map, encoded_bits)
 
 ## Converts [int]-bitstring into a [PackedInt32Array] with data indicies.
 static func bits_to_map(n: int, bit_count: int) -> PackedInt32Array:

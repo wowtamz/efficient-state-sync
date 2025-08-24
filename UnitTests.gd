@@ -11,6 +11,11 @@ func _ready() -> void:
 	test_state_data_conversion([0], [3])
 	test_state_data_conversion([6.8], [2])
 	print("StateData conversion tests sucessful!")
+	
+	test_state_data_3d_conversion()
+	test_state_data_3d_conversion([5, 4.5, 78.2, 12.9], [0, 2, 4, 6])
+	test_state_data_3d_conversion([1.2, 41.5, 8.2, 52.9], [1, 2, 5, 6])
+	print("StateData3D conversion tests sucessful!")
 
 func test_map_conversion(map: PackedInt32Array = [0, 1, 2, 3]):
 	var sdata = StateData.new([5.7, 13.5, 0.8, 12.0], map)
@@ -22,6 +27,16 @@ func test_state_data_conversion(data: Array = [5, 3.6, 5.5], map: PackedInt32Arr
 	var sdata = StateData.new(data, map)
 	var bytes = sdata.to_bytes()
 	var from_bytes = StateData.from_bytes(bytes)
+	assert(from_bytes.get_data().size() == data.size())
+	var step = 0.1
+	for i in range(data.size()):
+		assert(snappedf(from_bytes.get_data()[i], step) == snappedf(data[i], step))
+	assert(from_bytes.get_map() == map)
+
+func test_state_data_3d_conversion(data: Array = [5, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6], map: PackedInt32Array = [0, 1, 2, 3, 4, 5, 6]):
+	var sdata = StateData3D.new(data, map)
+	var bytes = sdata.to_bytes()
+	var from_bytes = StateData3D.from_bytes(bytes)
 	assert(from_bytes.get_data().size() == data.size())
 	var step = 0.1
 	for i in range(data.size()):
