@@ -7,11 +7,10 @@ class_name StateData
 ## by updating only values that have changed, a "map" 
 ## value is used to indicate which attributes the provided 
 ## values correspond to.
-##
+
 # Byte array structure:
-#   Values:    [map, state, val_1, val_2, val_3]
-#   Types:     [uint8, uint8, float16, float16, float16]
-#   Max size:  64 bits
+#   Values:    [map, state, val_1, val_2, ..., val_n]
+#   Types:     [uint8, uint8, float16, float16, ...,  float16]
 #
 # The map is a bitstring (array of 0s and 1s) where each position 
 # corresponds to an index in the data array:
