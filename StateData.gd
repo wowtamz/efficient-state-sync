@@ -44,6 +44,9 @@ func append(index: int, value: Variant):
 	_map.append(index)
 	_data.append(value)
 
+func equals(state: StateData) -> bool:
+	return _data == state.get_data() and _map == state.get_map()
+
 ## Returns true if [member StateDate.data] contains at least an element.
 func has_data() -> bool:
 	return not _data.is_empty()
@@ -80,15 +83,19 @@ static func from_bytes(bytes: PackedByteArray, encoded_bits: int = 4) -> StateDa
 	var decoded_map: PackedInt32Array = StateData.bits_to_map(buffer.get_u8(), encoded_bits)
 	var decoded_data: Array = []
 	for i in decoded_map:
-		@warning_ignore("incompatible_ternary")
-		var val: Variant = buffer.get_u8() if i == STATE else buffer.get_half()
-		if typeof(val) == TYPE_FLOAT:
-			var step = 0.1
-			## Round decoded float values to the nearest multiple of step
-			val = snappedf(val, step)
+		var val: Variant = value_from_bytes(buffer, i)
 		decoded_data.append(val)
 	
 	return StateData.new(decoded_data, decoded_map, encoded_bits)
+
+static func value_from_bytes(buffer: StreamPeerBuffer, index: int) -> Variant:
+	@warning_ignore("incompatible_ternary")
+	var val: Variant = buffer.get_u8() if index == STATE else buffer.get_half()
+	if typeof(val) == TYPE_FLOAT:
+		var step = 0.1
+		## Round decoded float values to the nearest multiple of step
+		val = snappedf(val, step)
+	return val
 
 ## Converts [int]-bitstring into a [PackedInt32Array] with data indicies.
 static func bits_to_map(n: int, bit_count: int) -> PackedInt32Array:
