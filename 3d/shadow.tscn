@@ -11,12 +11,14 @@ var states: Dictionary = {
 	4: Color.YELLOW,
 	5: Color.PINK
 }
-
+var id: int = 0
 var state: int = 0 : set = set_state
 
 func on_receive_packet(packet: PackedByteArray) -> void:
 	var state_data: StateData = StateData3D.from_bytes(packet)
-	
+	sync_state(state_data)
+
+func sync_state(state_data: StateData) -> void:
 	var pos_x = null
 	var pos_y = null
 	var pos_z = null

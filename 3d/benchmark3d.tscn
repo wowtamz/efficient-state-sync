@@ -1,34 +1,140 @@
-[gd_scene load_steps=4 format=3 uid="uid://deej8r8b345l4"]
-
-[ext_resource type="PackedScene" uid="uid://6obhswiy5rre" path="res://3d/unit3d.tscn" id="1_kujka"]
-[ext_resource type="PackedScene" uid="uid://1smt4uyggw43" path="res://3d/shadow3d.tscn" id="2_oqfq0"]
+[gd_scene load_steps=2 format=3 uid="uid://ccataafcggfki"]
 
 [sub_resource type="GDScript" id="GDScript_5df01"]
 script/source = "extends Control
 
-var sent_bytes: int = 0
+var unit_scene: PackedScene = preload(\"res://3d/unit.tscn\")
+var shadow_scene: PackedScene = preload(\"res://3d/shadow.tscn\")
 
+var sent_bytes: int = 0
+var send_rate: int = 30
 var _counter: float = 0.0
+var _send_rate_counter: float = 0.0
+var _use_batching: bool = false
+
+var id_counter = 0
+var shadows := Dictionary()
 
 func _ready() -> void:
 	connect_buttons()
 
-func connect_buttons() -> void:
-	$ui/b_vert.connect(\"toggled\", Callable($world/Unit, \"set_move_vertially\"))
-	$ui/b_hor.connect(\"toggled\", Callable($world/Unit, \"set_move_horizontally\"))
-	$ui/b_depth.connect(\"toggled\", Callable($world/Unit, \"set_move_depthwise\"))
-	$ui/b_state.connect(\"toggled\", Callable($world/Unit, \"set_change_state\"))
-	$ui/b_rot_x.connect(\"toggled\", Callable($world/Unit, \"apply_rotation_x\"))
-	$ui/b_rot_y.connect(\"toggled\", Callable($world/Unit, \"apply_rotation_y\"))
-	$ui/b_rot_z.connect(\"toggled\", Callable($world/Unit, \"apply_rotation_z\"))
-	
-	$ui/b_packet_count/spinbox.connect(\"value_changed\", Callable($world/Unit, \"set_send_rate\"))
+func spawn_object() -> void:
+	add_unit(id_counter)
+	add_shadow(id_counter)
+	id_counter += 1
 
-func on_change_state_pressed(toggled: bool) -> void:
-	$Unit.changes_state = toggled
+func despawn_object() -> void:
+	if id_counter > 0:
+		id_counter -= 1
+		var unit = get_unit(id_counter)
+		var shadow = get_shadow(id_counter)
+		shadows.erase(id_counter)
+		unit.queue_free()
+		shadow.queue_free()
+
+func add_unit(id: int = id_counter) -> void:
+	var new_unit = unit_scene.instantiate()
+	new_unit.id = id
+	new_unit.position.x = 2 + randi_range(-2, 2)
+	new_unit.position.y = randi_range(-2, 2)
+	new_unit.position.z = randi_range(-2, 2)
+	
+	$world.add_child(new_unit)
+	if id > 0:
+		var root_unit = get_unit(0)
+		new_unit.set_change_state(root_unit.changes_state)
+		new_unit.apply_rotation_x(root_unit.get(\"_angle_x\") > 0.0)
+		new_unit.apply_rotation_y(root_unit.get(\"_angle_y\") > 0.0)
+		new_unit.apply_rotation_z(root_unit.get(\"_angle_z\") > 0.0)
+		new_unit.set_move_vertically(root_unit.move_vertially)
+		new_unit.set_move_horizontally(root_unit.move_horizontally)
+		new_unit.set_move_depthwise(root_unit.move_depthwise)
+
+func add_shadow(id: int = id_counter) -> void:
+	var new_shadow = shadow_scene.instantiate()
+	new_shadow.id = id_counter
+	$world.add_child(new_shadow)
+
+func connect_buttons() -> void:
+	$ui/b_add.connect(\"pressed\", Callable(self, \"spawn_object\"))
+	$ui/b_remove.connect(\"pressed\", Callable(self, \"despawn_object\"))
+	$ui/b_batch.connect(\"toggled\", Callable(self, \"set_use_batching\"))
+	$ui/b_vert.connect(\"toggled\", Callable(self, \"set_move_vertically\"))
+	$ui/b_hor.connect(\"toggled\", Callable(self, \"set_move_horizontally\"))
+	$ui/b_depth.connect(\"toggled\", Callable(self, \"set_move_depthwise\"))
+	$ui/b_state.connect(\"toggled\", Callable(self, \"set_change_state\"))
+	$ui/b_rot_x.connect(\"toggled\", Callable(self, \"apply_rotation_x\"))
+	$ui/b_rot_y.connect(\"toggled\", Callable(self, \"apply_rotation_y\"))
+	$ui/b_rot_z.connect(\"toggled\", Callable(self, \"apply_rotation_z\"))
+	$ui/b_packet_count/spinbox.connect(\"value_changed\", Callable(self, \"set_send_rate\"))
+
+func set_use_batching(val: bool):
+	_use_batching = val
+
+func set_change_state(val: bool) -> void:
+	for node in get_tree().get_nodes_in_group(\"unit\"):
+		node.set_change_state(val)
+
+func apply_rotation_x(val: bool) -> void:
+	for node in get_tree().get_nodes_in_group(\"unit\"):
+		node.apply_rotation_x(val)
+
+func apply_rotation_y(val: bool) -> void:
+	for node in get_tree().get_nodes_in_group(\"unit\"):
+		node.apply_rotation_y(val)
+
+func apply_rotation_z(val: bool) -> void:
+	for node in get_tree().get_nodes_in_group(\"unit\"):
+		node.apply_rotation_z(val)
+
+func set_move_vertically(val: bool) -> void:
+	for node in get_tree().get_nodes_in_group(\"unit\"):
+		node.set_move_vertically(val)
+
+func set_move_horizontally(val: bool) -> void:
+	for node in get_tree().get_nodes_in_group(\"unit\"):
+		node.set_move_horizontally(val)
+
+func set_move_depthwise(val: bool) -> void:
+	for node in get_tree().get_nodes_in_group(\"unit\"):
+		node.set_move_depthwise(val)
+
+func set_send_rate(val: int) -> void:
+	send_rate = val
 
 func _process(delta: float) -> void:
+	$ui/units.text = \"units: %d\" % (id_counter)
+	process_state_sync(delta)
 	process_send_rate(delta)
+
+func process_state_sync(delta: float) -> void:
+	_send_rate_counter += delta
+	if _send_rate_counter > 1.0 / float(send_rate):
+		_send_rate_counter = 0.0
+		var batch_data: Dictionary[int, StateData] = {}
+		for node in get_tree().get_nodes_in_group(\"unit\"):
+			var packet = node.get_packet()
+			if packet:
+				if _use_batching:
+					batch_data[node.id] = packet
+				else:
+					var byte_array: PackedByteArray = packet.to_bytes()
+					add_sent_bytes(byte_array.size())
+					var shadow = get_shadow(node.id)
+					shadow.on_receive_packet(byte_array)
+		if not batch_data.is_empty():
+			var batch_packet = BatchStateData2D.new(batch_data)
+			var batch_bytes = batch_packet.to_bytes()
+			add_sent_bytes(batch_bytes.size())
+			on_receive_batch(batch_bytes)
+
+func on_receive_batch(bytes: PackedByteArray) -> void:
+	var batch = BatchStateData3D.from_bytes(bytes)
+	for key in batch.get_data().keys():
+		var shadow = get_shadow(key)
+		if shadow:
+			var state_data: StateData = batch.get_data()[key]
+			shadow.sync_state(state_data)
 
 func process_send_rate(delta: float) -> void:
 	_counter += delta
@@ -39,10 +145,26 @@ func process_send_rate(delta: float) -> void:
 		_counter = 0.0
 
 func add_sent_bytes(amount: int) -> void:
-	sent_bytes += amount
+	var udp_header = 8 # 64 bit udp header
+	sent_bytes += udp_header + amount
 
 func get_sent_bits() -> int:
 	return sent_bytes * 8
+
+func get_unit(id: int) -> Node3D:
+	for node in get_tree().get_nodes_in_group(\"unit\"):
+		if node.id == id:
+			return node
+	return null
+
+func get_shadow(id: int) -> Node3D:
+	if shadows.has(id):
+		return shadows[id]
+	for node in get_tree().get_nodes_in_group(\"shadow\"):
+		if node.id == id:
+			shadows[id] = node
+			return node
+	return null
 "
 
 [node name="benchmark" type="Control"]
@@ -61,33 +183,52 @@ anchor_right = 1.0
 offset_bottom = 82.0
 grow_horizontal = 2
 size_flags_horizontal = 4
-columns = 8
+columns = 13
 
 [node name="bps" type="Label" parent="ui"]
 custom_minimum_size = Vector2(128, 0)
 layout_mode = 2
 text = "kbits/sec"
 
+[node name="units" type="Label" parent="ui"]
+custom_minimum_size = Vector2(128, 0)
+layout_mode = 2
+text = "units: 0"
+
 [node name="vsep" type="VSeparator" parent="ui"]
 layout_mode = 2
+
+[node name="b_add" type="Button" parent="ui"]
+layout_mode = 2
+text = "Add unit"
+
+[node name="b_remove" type="Button" parent="ui"]
+layout_mode = 2
+text = "Remove unit"
+
+[node name="b_batch" type="Button" parent="ui"]
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+text = "Use batching"
 
 [node name="b_vert" type="Button" parent="ui"]
 layout_mode = 2
 focus_mode = 0
 toggle_mode = true
-text = "Move vertically"
+text = "Move Y"
 
 [node name="b_hor" type="Button" parent="ui"]
 layout_mode = 2
 focus_mode = 0
 toggle_mode = true
-text = "Move horizontally"
+text = "Move X"
 
 [node name="b_depth" type="Button" parent="ui"]
 layout_mode = 2
 focus_mode = 0
 toggle_mode = true
-text = "Move depthwise"
+text = "Move Z"
 
 [node name="b_state" type="Button" parent="ui"]
 layout_mode = 2
@@ -115,9 +256,6 @@ focus_mode = 0
 toggle_mode = true
 text = "Rot Z"
 
-[node name="vsep2" type="VSeparator" parent="ui"]
-layout_mode = 2
-
 [node name="b_packet_count" type="HBoxContainer" parent="ui"]
 layout_mode = 2
 
@@ -134,12 +272,6 @@ value = 30.0
 [node name="Camera3D" type="Camera3D" parent="world"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 7.99024)
 current = true
-
-[node name="Unit" parent="world" instance=ExtResource("1_kujka")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 0, 0)
-
-[node name="shadow" parent="world" instance=ExtResource("2_oqfq0")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 0)
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="world"]
 transform = Transform3D(0.981019, 0, -0.193909, 0, 1, 0, 0.193909, 0, 0.981019, -4.45038, 0, 0)
