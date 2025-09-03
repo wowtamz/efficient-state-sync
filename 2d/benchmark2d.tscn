@@ -12,7 +12,7 @@ var _counter: float = 0.0
 var _send_rate_counter: float = 0.0
 var _use_batching: bool = false
 
-var id_counter = 1
+var id_counter = 0
 var shadows := Dictionary()
 
 func _ready() -> void:
@@ -23,12 +23,27 @@ func spawn_object() -> void:
 	add_shadow(id_counter)
 	id_counter += 1
 
+func despawn_object() -> void:
+	if id_counter > 0:
+		id_counter -= 1
+		var unit = get_unit(id_counter)
+		var shadow = get_shadow(id_counter)
+		shadows.erase(id_counter)
+		unit.queue_free()
+		shadow.queue_free()
+
 func add_unit(id: int = id_counter) -> void:
 	var new_unit = unit_scene.instantiate()
 	new_unit.id = id
 	new_unit.position.x = 256.0 + randi_range(-200, 200)
 	new_unit.position.y = 360 + randi_range(-200, 200)
 	add_child(new_unit)
+	if id > 0:
+		var root_unit = get_unit(0)
+		new_unit.set_change_state(root_unit.changes_state)
+		new_unit.apply_rotation(root_unit.get(\"_angle\") > 0.0)
+		new_unit.set_move_vertically(root_unit.move_vertially)
+		new_unit.set_move_horizontally(root_unit.move_horizontally)
 
 func add_shadow(id: int = id_counter) -> void:
 	var new_shadow = shadow_scene.instantiate()
@@ -37,6 +52,7 @@ func add_shadow(id: int = id_counter) -> void:
 
 func connect_buttons() -> void:
 	$ui/b_add.connect(\"pressed\", Callable(self, \"spawn_object\"))
+	$ui/b_remove.connect(\"pressed\", Callable(self, \"despawn_object\"))
 	$ui/b_batch.connect(\"toggled\", Callable(self, \"set_use_batching\"))
 	$ui/b_vert.connect(\"toggled\", Callable(self, \"set_move_vertically\"))
 	$ui/b_hor.connect(\"toggled\", Callable(self, \"set_move_horizontally\"))
@@ -114,6 +130,12 @@ func add_sent_bytes(amount: int) -> void:
 func get_sent_bits() -> int:
 	return sent_bytes * 8
 
+func get_unit(id: int) -> Node2D:
+	for node in get_tree().get_nodes_in_group(\"unit\"):
+		if node.id == id:
+			return node
+	return null
+
 func get_shadow(id: int) -> Node2D:
 	if shadows.has(id):
 		return shadows[id]
@@ -140,7 +162,7 @@ anchor_right = 1.0
 offset_bottom = 82.0
 grow_horizontal = 2
 size_flags_horizontal = 4
-columns = 8
+columns = 10
 
 [node name="bps" type="Label" parent="ui"]
 custom_minimum_size = Vector2(128, 0)
@@ -149,10 +171,15 @@ text = "kbits/sec"
 
 [node name="vsep" type="VSeparator" parent="ui"]
 layout_mode = 2
+size_flags_horizontal = 0
 
 [node name="b_add" type="Button" parent="ui"]
 layout_mode = 2
 text = "Add unit"
+
+[node name="b_remove" type="Button" parent="ui"]
+layout_mode = 2
+text = "Remove unit"
 
 [node name="b_batch" type="Button" parent="ui"]
 layout_mode = 2
