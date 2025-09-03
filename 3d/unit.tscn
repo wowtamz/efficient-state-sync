@@ -12,6 +12,8 @@ var states: Dictionary = {
 	5: Color.PINK
 }
 
+var id: int = 0
+
 var movement_area = Vector3(4, 4, 4)
 var move_dir = Vector3(0, 0, 0)
 var move_speed = 2
@@ -60,7 +62,7 @@ func apply_rotation_y(val: bool) -> void:
 func apply_rotation_z(val: bool) -> void:
 	_angle_z = randf_range(1.0, 10.0) if val else 0.0
 
-func set_move_vertially(val: bool) -> void:
+func set_move_vertically(val: bool) -> void:
 	move_dir.y = randf_range(-1.0, 1.0) if val else 0.0
 	move_dir = move_dir.normalized()
 	move_vertially = val
@@ -80,7 +82,6 @@ func set_send_rate(val: int) -> void:
 
 func _process(delta: float) -> void:
 	process_states(delta)
-	process_state_sync(delta)
 	process_movement(delta)
 	process_rotation(delta)
 
@@ -91,38 +92,30 @@ func process_states(delta: float) -> void:
 			_counter = 0.0
 			change_state()
 
-func process_state_sync(delta: float) -> void:
-	_counter2 += delta
-	if _counter2 > 1.0 / float(_send_rate):
-		_counter2 = 0.0
+func get_packet() -> Variant:
+	var packet = StateData3D.new()
+	
+	var values = [state, position.x, position.y, position.z,
+		rotation.x, rotation.y, rotation.z]
+	
+	var indicies = [StateData3D.STATE, StateData3D.POS_X, StateData3D.POS_Y,
+		StateData3D.POS_Z, StateData3D.ROT_X, StateData3D.ROT_Y, StateData3D.ROT_Z]
+	
+	var last_values = [\"last_state\", \"last_pos_x\", \"last_pos_y\", \"last_pos_z\",
+		\"last_rot_x\", \"last_rot_y\", \"last_rot_z\"]
+	
+	for i in range(values.size()):
+		var val = values[i]
+		var index = indicies[i]
+		var last_val = last_values[i]
 		
-		var packet = StateData3D.new()
-		
-		var values = [state, position.x, position.y, position.z,
-			rotation.x, rotation.y, rotation.z]
-		
-		var indicies = [StateData3D.STATE, StateData3D.POS_X, StateData3D.POS_Y,
-			StateData3D.POS_Z, StateData3D.ROT_X, StateData3D.ROT_Y, StateData3D.ROT_Z]
-		
-		var last_values = [\"last_state\", \"last_pos_x\", \"last_pos_y\", \"last_pos_z\",
-			\"last_rot_x\", \"last_rot_y\", \"last_rot_z\"]
-		
-		for i in range(values.size()):
-			var val = values[i]
-			var index = indicies[i]
-			var last_val = last_values[i]
-			
-			if val != get(last_val):
-				packet.append(index, val)
-				set(last_val, val)
-		
-		if packet.has_data():
-			send_packet(packet)
+		if val != get(last_val):
+			packet.append(index, val)
+			set(last_val, val)
 
-func send_packet(packet: StateData) -> void:
-	var byte_array: PackedByteArray = packet.to_bytes()
-	get_parent().get_parent().add_sent_bytes(byte_array.size())
-	get_parent().get_node(\"shadow\").on_receive_packet(byte_array)
+	if packet.has_data():
+		return packet
+	return null
 
 func process_movement(delta: float) -> void:
 	
@@ -158,7 +151,7 @@ func process_rotation(delta: float) -> void:
 [sub_resource type="BoxMesh" id="BoxMesh_3wnp8"]
 material = SubResource("StandardMaterial3D_3wnp8")
 
-[node name="Unit3d" type="Node3D"]
+[node name="unit" type="Node3D" groups=["unit"]]
 script = SubResource("GDScript_3wnp8")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]

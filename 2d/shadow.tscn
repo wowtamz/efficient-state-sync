@@ -14,11 +14,15 @@ var states: Dictionary = {
 	5: Color.PINK
 }
 
+var id: int = 0
+
 var state: int = 0 : set = set_state
 
 func on_receive_packet(packet: PackedByteArray) -> void:
-	
 	var state_data: StateData = StateData2D.from_bytes(packet)
+	sync_state(state_data)
+
+func sync_state(state_data: StateData) -> void:
 	
 	var pos_x = null
 	var pos_y = null
@@ -51,7 +55,9 @@ func set_state(new_state: int) -> void:
 	modulate = states[new_state]
 "
 
-[node name="shadow" type="Sprite2D"]
+[node name="shadow" type="Sprite2D" groups=["shadow"]]
 modulate = Color(1, 1, 1, 0.596078)
+self_modulate = Color(1, 1, 1, 0.529412)
+scale = Vector2(0.5, 0.5)
 texture = ExtResource("1_6pqxc")
 script = SubResource("GDScript_6pqxc")

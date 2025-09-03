@@ -1,24 +1,22 @@
 class_name StateData3D
 extends StateData
-## StateData3D is an efficiently data structure which
-## encodes 3-dimensional position and rotation as well as state for sending
-## it over the network with as little size as possible.
-##
-## To save bandwidth, only values that changed should be
-## updated. This requires a map value which determines
-## to which attribute each values should be mapped to.
-##
-## Byte array structure:
-## values:		[map, pos_x, pos_y, pos_z, rot_x, rot_y, rot_z, state]
-## datatypes: 	[uint8, float16, float16, float16, float16, float16, float16, uint8]
-## max size: 112 bits
+## 3D implementation of the [StateData] class.
+## 
+## [StateData3D] efficiently encodes 3-dimensional position 
+## and rotation as well as state as a [PackedByteArray] for 
+## sending it over the network with as little size as possible.
 
-## Map bit structure:
-## Value 1 if data contains value for that index, 0 if otherwise
-## [POSX, POSY, POSZ, ROTX, ROTY, ROTZ, STATE]
-## Example: [0, 1, 0, 0, 0, 0, 1] -> Only contains POSY and STATE data
+# Byte array structure:
+# values:		[map, pos_x, pos_y, pos_z, rot_x, rot_y, rot_z, state]
+# datatypes: 	[uint8, float16, float16, float16, float16, float16, float16, uint8]
+# max size: 112 bits
 
-## Value indicies
+# Map bit structure:
+# Value 1 if data contains value for that index, 0 if otherwise
+# [POSX, POSY, POSZ, ROTX, ROTY, ROTZ, STATE]
+# Example: [0, 1, 0, 0, 0, 0, 1] -> Only contains POSY and STATE data
+
+# Value indicies
 const POS_X = 1
 const POS_Y = 2
 const POS_Z = 3
@@ -26,7 +24,8 @@ const ROT_X = 4
 const ROT_Y = 5
 const ROT_Z = 6
 
-## Maximum possible values encoded in map
+## Amount of bits used to represent [member _map]. Equivalent 
+## to the maximum possible values which can be encoded into [member _map].
 const ENCODED_BITS = 8
 
 func _init(data: Array = [], map: PackedInt32Array = []) -> void:
