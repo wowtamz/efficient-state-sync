@@ -18,41 +18,73 @@ var id: int = 0
 
 var state: int = 0 : set = set_state
 
+var pos: Vector2 = position
+
+var snapshots: Array[StateData] = []
+
+var _latency: float = 0.2
+var _packet_loss: float = 0.0
+
+func _ready() -> void:
+	set_process(false)
+
+func _process(_delta: float) -> void:
+	#position = lerp(position, pos, 0.15)
+	if snapshots.size() > 2:
+		var state_data: StateData = snapshots[1]
+		var state_map = state_data.get_map()
+		if StateData2D.POS_X in state_map:
+			var val = state_data.get_value(StateData2D.POS_X)
+			position.x = lerp(position.x, val + (get_viewport_rect().size.x / 2) - 64, 0.35)
+		if StateData2D.POS_Y in state_map:
+			var val = state_data.get_value(StateData2D.POS_Y)
+			position.y = lerp(position.y, val, 0.35)
+
+func add_snapshot(data: StateData) -> void:
+	snapshots.append(data)
+	if snapshots.size() > 5:
+		snapshots.pop_front()
+
 func on_receive_packet(packet: PackedByteArray) -> void:
+	if is_packet_lost(): # Simulate packet loss
+		return
 	var state_data: StateData = StateData2D.from_bytes(packet)
+	#add_snapshot(state_data)
+	await get_tree().create_timer(_latency).timeout
 	sync_state(state_data)
+
+func is_packet_lost() -> bool:
+	if _packet_loss:
+		var rand_val = randi_range(0, int(1.0 / _packet_loss) - 1)
+		if rand_val == 0:
+			return true
+	return false
 
 func sync_state(state_data: StateData) -> void:
 	
-	var pos_x = null
-	var pos_y = null
-	var rot = null
-	var _state = null
-	
-	var data = state_data.get_data()
-	var map = state_data.get_map()
-	for i in map:
-		match i:
-			StateData2D.POS_X:
-				pos_x = data.pop_front()
-			StateData2D.POS_Y:
-				pos_y = data.pop_front()
-			StateData2D.ROT:
-				rot = data.pop_front()
-			StateData2D.STATE:
-				_state = data.pop_front()
+	var pos_x = state_data.get_value(StateData2D.POS_X)
+	var pos_y = state_data.get_value(StateData2D.POS_Y)
+	var rot = state_data.get_value(StateData2D.ROT)
+	var _state = state_data.get_value(StateData2D.STATE)
 	
 	if pos_x:
 		position.x = pos_x + (get_viewport_rect().size.x / 2) - 64
 	if pos_y:
 		position.y = pos_y
 	if rot:
+		print(rot)
 		rotation = rot
 	if _state:
 		state = _state
 
 func set_state(new_state: int) -> void:
 	modulate = states[new_state]
+
+func set_latency(ms: float) -> void:
+	_latency = ms / 1000.0
+
+func set_packet_loss(val: float) -> void:
+	_packet_loss = val
 "
 
 [node name="shadow" type="Sprite2D" groups=["shadow"]]

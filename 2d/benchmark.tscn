@@ -59,6 +59,8 @@ func connect_buttons() -> void:
 	$ui/b_state.connect(\"toggled\", Callable(self, \"set_change_state\"))
 	$ui/b_rotation.connect(\"toggled\", Callable(self, \"apply_rotation\"))
 	$ui/b_packet_count/spinbox.connect(\"value_changed\", Callable(self, \"set_send_rate\"))
+	$ui/b_latency/spinbox.connect(\"value_changed\", Callable(self, \"set_latency\"))
+	$ui/b_packet_loss/spinbox.connect(\"value_changed\", Callable(self, \"set_packet_loss\"))
 
 func set_use_batching(val: bool):
 	_use_batching = val
@@ -81,6 +83,14 @@ func set_move_horizontally(val: bool) -> void:
 
 func set_send_rate(val: int) -> void:
 	send_rate = val
+
+func set_latency(ms: float) -> void:
+	for node in get_tree().get_nodes_in_group(\"shadow\"):
+		node.set_latency(ms)
+
+func set_packet_loss(val: float) -> void:
+	for node in get_tree().get_nodes_in_group(\"shadow\"):
+		node.set_packet_loss(val)
 
 func _process(delta: float) -> void:
 	process_state_sync(delta)
@@ -163,7 +173,7 @@ anchor_right = 1.0
 offset_bottom = 82.0
 grow_horizontal = 2
 size_flags_horizontal = 4
-columns = 10
+columns = 6
 
 [node name="bps" type="Label" parent="ui"]
 custom_minimum_size = Vector2(128, 0)
@@ -174,10 +184,6 @@ text = "kbits/sec"
 custom_minimum_size = Vector2(128, 0)
 layout_mode = 2
 text = "units: 0"
-
-[node name="vsep" type="VSeparator" parent="ui"]
-layout_mode = 2
-size_flags_horizontal = 0
 
 [node name="b_add" type="Button" parent="ui"]
 layout_mode = 2
@@ -228,3 +234,28 @@ text = "packets/sec"
 [node name="spinbox" type="SpinBox" parent="ui/b_packet_count"]
 layout_mode = 2
 value = 30.0
+
+[node name="b_latency" type="HBoxContainer" parent="ui"]
+layout_mode = 2
+
+[node name="label" type="Label" parent="ui/b_latency"]
+layout_mode = 2
+text = "latency in ms"
+
+[node name="spinbox" type="SpinBox" parent="ui/b_latency"]
+layout_mode = 2
+max_value = 1000.0
+step = 0.5
+value = 100.0
+
+[node name="b_packet_loss" type="HBoxContainer" parent="ui"]
+layout_mode = 2
+
+[node name="label" type="Label" parent="ui/b_packet_loss"]
+layout_mode = 2
+text = "pecket loss in %"
+
+[node name="spinbox" type="SpinBox" parent="ui/b_packet_loss"]
+layout_mode = 2
+max_value = 1.0
+step = 0.01
