@@ -30,7 +30,7 @@ StateData is a lightweight and modular data structure designed to efficiently sy
 git clone https://github.com/wowtamz/efficient-state-sync.git
 ```
 
-2. Run the benchmark.tscn scene to view performance.
+2. Run the 2d/benchmark.tscn or 3d/benchmark.tscn scene to view performance.
 
 3. Modify and use StateData.gd for your purposes.
 
