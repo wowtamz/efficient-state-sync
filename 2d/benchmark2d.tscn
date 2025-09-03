@@ -85,6 +85,7 @@ func set_send_rate(val: int) -> void:
 func _process(delta: float) -> void:
 	process_state_sync(delta)
 	process_send_rate(delta)
+	$ui/units.text = \"units: %d\" % (id_counter)
 
 func process_state_sync(delta: float) -> void:
 	_send_rate_counter += delta
@@ -168,6 +169,11 @@ columns = 10
 custom_minimum_size = Vector2(128, 0)
 layout_mode = 2
 text = "kbits/sec"
+
+[node name="units" type="Label" parent="ui"]
+custom_minimum_size = Vector2(128, 0)
+layout_mode = 2
+text = "units: 0"
 
 [node name="vsep" type="VSeparator" parent="ui"]
 layout_mode = 2
