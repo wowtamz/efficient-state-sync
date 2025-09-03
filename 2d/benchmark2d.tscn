@@ -1,30 +1,102 @@
-[gd_scene load_steps=4 format=3 uid="uid://dx11sgjuj2s2j"]
-
-[ext_resource type="PackedScene" uid="uid://6kqe5s0g3yc4" path="res://2d/unit.tscn" id="1_3fc77"]
-[ext_resource type="PackedScene" uid="uid://ddp6wlxjov6ll" path="res://2d/shadow.tscn" id="2_yala7"]
+[gd_scene load_steps=2 format=3 uid="uid://dx11sgjuj2s2j"]
 
 [sub_resource type="GDScript" id="GDScript_5df01"]
 script/source = "extends Control
 
-var sent_bytes: int = 0
+var unit_scene: PackedScene = preload(\"res://2d/unit.tscn\")
+var shadow_scene: PackedScene = preload(\"res://2d/shadow.tscn\")
 
+var sent_bytes: int = 0
+var send_rate: int = 30
 var _counter: float = 0.0
+var _send_rate_counter: float = 0.0
+var _use_batching: bool = false
+
+var id_counter = 1
+var shadows := Dictionary()
 
 func _ready() -> void:
 	connect_buttons()
 
-func connect_buttons() -> void:
-	$ui/b_vert.connect(\"toggled\", Callable($Unit, \"set_move_vertially\"))
-	$ui/b_hor.connect(\"toggled\", Callable($Unit, \"set_move_horizontally\"))
-	$ui/b_state.connect(\"toggled\", Callable($Unit, \"set_change_state\"))
-	$ui/b_rotation.connect(\"toggled\", Callable($Unit, \"apply_rotation\"))
-	$ui/b_packet_count/spinbox.connect(\"value_changed\", Callable($Unit, \"set_send_rate\"))
+func spawn_object() -> void:
+	add_unit(id_counter)
+	add_shadow(id_counter)
+	id_counter += 1
 
-func on_change_state_pressed(toggled: bool) -> void:
-	$Unit.changes_state = toggled
+func add_unit(id: int = id_counter) -> void:
+	var new_unit = unit_scene.instantiate()
+	new_unit.id = id
+	new_unit.position.x = 256.0 + randi_range(-200, 200)
+	new_unit.position.y = 360 + randi_range(-200, 200)
+	add_child(new_unit)
+
+func add_shadow(id: int = id_counter) -> void:
+	var new_shadow = shadow_scene.instantiate()
+	new_shadow.id = id_counter
+	add_child(new_shadow)
+
+func connect_buttons() -> void:
+	$ui/b_add.connect(\"pressed\", Callable(self, \"spawn_object\"))
+	$ui/b_batch.connect(\"toggled\", Callable(self, \"set_use_batching\"))
+	$ui/b_vert.connect(\"toggled\", Callable(self, \"set_move_vertically\"))
+	$ui/b_hor.connect(\"toggled\", Callable(self, \"set_move_horizontally\"))
+	$ui/b_state.connect(\"toggled\", Callable(self, \"set_change_state\"))
+	$ui/b_rotation.connect(\"toggled\", Callable(self, \"apply_rotation\"))
+	$ui/b_packet_count/spinbox.connect(\"value_changed\", Callable(self, \"set_send_rate\"))
+
+func set_use_batching(val: bool):
+	_use_batching = val
+
+func set_change_state(val: bool) -> void:
+	for node in get_tree().get_nodes_in_group(\"unit\"):
+		node.set_change_state(val)
+
+func apply_rotation(val: bool) -> void:
+	for node in get_tree().get_nodes_in_group(\"unit\"):
+		node.apply_rotation(val)
+
+func set_move_vertically(val: bool) -> void:
+	for node in get_tree().get_nodes_in_group(\"unit\"):
+		node.set_move_vertically(val)
+
+func set_move_horizontally(val: bool) -> void:
+	for node in get_tree().get_nodes_in_group(\"unit\"):
+		node.set_move_horizontally(val)
+
+func set_send_rate(val: int) -> void:
+	send_rate = val
 
 func _process(delta: float) -> void:
+	process_state_sync(delta)
 	process_send_rate(delta)
+
+func process_state_sync(delta: float) -> void:
+	_send_rate_counter += delta
+	if _send_rate_counter > 1.0 / float(send_rate):
+		_send_rate_counter = 0.0
+		var batch_data: Dictionary[int, StateData] = {}
+		for node in get_tree().get_nodes_in_group(\"unit\"):
+			var packet = node.get_packet()
+			if packet:
+				if _use_batching:
+					batch_data[node.id] = packet
+					var batch_packet = BatchStateData2D.new(batch_data)
+					var batch_bytes = batch_packet.to_bytes()
+					add_sent_bytes(batch_bytes.size())
+					on_receive_batch(batch_bytes)
+				else:
+					var byte_array: PackedByteArray = packet.to_bytes()
+					add_sent_bytes(byte_array.size())
+					var shadow = get_shadow(node.id)
+					shadow.on_receive_packet(byte_array)
+
+func on_receive_batch(bytes: PackedByteArray) -> void:
+	var batch = BatchStateData2D.from_bytes(bytes)
+	for key in batch.get_data().keys():
+		var shadow = get_shadow(key)
+		if shadow:
+			var state_data: StateData = batch.get_data()[key]
+			shadow.sync_state(state_data)
 
 func process_send_rate(delta: float) -> void:
 	_counter += delta
@@ -39,6 +111,15 @@ func add_sent_bytes(amount: int) -> void:
 
 func get_sent_bits() -> int:
 	return sent_bytes * 8
+
+func get_shadow(id: int) -> Node2D:
+	if shadows.has(id):
+		return shadows[id]
+	for node in get_tree().get_nodes_in_group(\"shadow\"):
+		if node.id == id:
+			shadows[id] = node
+			return node
+	return null
 "
 
 [node name="benchmark" type="Control"]
@@ -67,6 +148,16 @@ text = "kbits/sec"
 [node name="vsep" type="VSeparator" parent="ui"]
 layout_mode = 2
 
+[node name="b_add" type="Button" parent="ui"]
+layout_mode = 2
+text = "Add unit"
+
+[node name="b_batch" type="Button" parent="ui"]
+layout_mode = 2
+focus_mode = 0
+toggle_mode = true
+text = "Use batching"
+
 [node name="b_vert" type="Button" parent="ui"]
 layout_mode = 2
 focus_mode = 0
@@ -92,9 +183,6 @@ toggle_mode = true
 text = "Apply Rotation
 "
 
-[node name="vsep2" type="VSeparator" parent="ui"]
-layout_mode = 2
-
 [node name="b_packet_count" type="HBoxContainer" parent="ui"]
 layout_mode = 2
 
@@ -105,12 +193,3 @@ text = "packets/sec"
 [node name="spinbox" type="SpinBox" parent="ui/b_packet_count"]
 layout_mode = 2
 value = 30.0
-
-[node name="Unit" parent="." instance=ExtResource("1_3fc77")]
-position = Vector2(276, 259)
-
-[node name="shadow" parent="." instance=ExtResource("2_yala7")]
-modulate = Color(1, 1, 1, 1)
-self_modulate = Color(1, 1, 1, 0.596078)
-position = Vector2(276, 259)
-scale = Vector2(0.5, 0.5)

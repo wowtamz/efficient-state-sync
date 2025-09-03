@@ -14,6 +14,8 @@ var states: Dictionary = {
 	5: Color.PINK
 }
 
+var id: int = 0
+
 var movement_area = Vector2(1270, 720)
 var move_dir = Vector2(0, 0)
 var move_speed = 250
@@ -54,7 +56,7 @@ func set_change_state(val: bool) -> void:
 func apply_rotation(val: bool) -> void:
 	_angle = randf_range(1.0, 10.0) if val else 0.0
 
-func set_move_vertially(val: bool) -> void:
+func set_move_vertically(val: bool) -> void:
 	move_dir.y = randf_range(-1.0, 1.0) if val else 0.0
 	move_dir = move_dir.normalized()
 	move_vertially = val
@@ -69,7 +71,6 @@ func set_send_rate(val: int) -> void:
 
 func _process(delta: float) -> void:
 	process_states(delta)
-	process_state_sync(delta)
 	process_movement(delta)
 	process_rotation(delta)
 
@@ -80,28 +81,35 @@ func process_states(delta: float) -> void:
 			_counter = 0.0
 			change_state()
 
+## DEPRECATED function
 func process_state_sync(delta: float) -> void:
 	_counter2 += delta
 	if _counter2 > 1.0 / float(_send_rate):
 		_counter2 = 0.0
 		
-		var packet = StateData2D.new()
-		
-		if state != last_state:
-			packet.append(StateData2D.STATE, state)
-			last_state = state
-		if position.x != last_pos_x:
-			packet.append(StateData2D.POS_X, position.x)
-			last_pos_x = position.x
-		if position.y != last_pos_y:
-			packet.append(StateData2D.POS_Y, position.y)
-			last_pos_y = position.y
-		if rotation != last_rot:
-			packet.append(StateData2D.ROT, rotation)
-			last_rot = rotation
+		var packet = get_packet()
 		
 		if packet.has_data():
 			send_packet(packet)
+
+func get_packet() -> Variant:
+	var packet = StateData2D.new()
+	if state != last_state:
+		packet.append(StateData2D.STATE, state)
+		last_state = state
+	if position.x != last_pos_x:
+		packet.append(StateData2D.POS_X, position.x)
+		last_pos_x = position.x
+	if position.y != last_pos_y:
+		packet.append(StateData2D.POS_Y, position.y)
+		last_pos_y = position.y
+	if rotation != last_rot:
+		packet.append(StateData2D.ROT, rotation)
+		last_rot = rotation
+
+	if packet.has_data():
+		return packet
+	return null
 
 func send_packet(packet: StateData) -> void:
 	var byte_array: PackedByteArray = packet.to_bytes()
@@ -124,7 +132,7 @@ func process_rotation(delta: float) -> void:
 			rotation -= 360
 "
 
-[node name="Unit" type="Sprite2D"]
+[node name="Unit" type="Sprite2D" groups=["unit"]]
 scale = Vector2(0.5, 0.5)
 texture = ExtResource("1_btf8p")
 script = SubResource("GDScript_btf8p")
