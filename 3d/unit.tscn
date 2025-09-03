@@ -158,7 +158,7 @@ func process_rotation(delta: float) -> void:
 [sub_resource type="BoxMesh" id="BoxMesh_3wnp8"]
 material = SubResource("StandardMaterial3D_3wnp8")
 
-[node name="Unit3d" type="Node3D"]
+[node name="Unit3d" type="Node3D" groups=["unit"]]
 script = SubResource("GDScript_3wnp8")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]

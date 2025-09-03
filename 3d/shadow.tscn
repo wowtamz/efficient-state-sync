@@ -72,7 +72,7 @@ albedo_color = Color(1, 1, 1, 0.8)
 [sub_resource type="BoxMesh" id="BoxMesh_gt6dh"]
 material = SubResource("StandardMaterial3D_shm6d")
 
-[node name="shadow" type="Node3D"]
+[node name="shadow" type="Node3D" groups=["shadow"]]
 script = SubResource("GDScript_shm6d")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
