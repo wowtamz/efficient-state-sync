@@ -80,15 +80,16 @@ func process_state_sync(delta: float) -> void:
 			if packet:
 				if _use_batching:
 					batch_data[node.id] = packet
-					var batch_packet = BatchStateData2D.new(batch_data)
-					var batch_bytes = batch_packet.to_bytes()
-					add_sent_bytes(batch_bytes.size())
-					on_receive_batch(batch_bytes)
 				else:
 					var byte_array: PackedByteArray = packet.to_bytes()
 					add_sent_bytes(byte_array.size())
 					var shadow = get_shadow(node.id)
 					shadow.on_receive_packet(byte_array)
+		if not batch_data.is_empty():
+			var batch_packet = BatchStateData2D.new(batch_data)
+			var batch_bytes = batch_packet.to_bytes()
+			add_sent_bytes(batch_bytes.size())
+			on_receive_batch(batch_bytes)
 
 func on_receive_batch(bytes: PackedByteArray) -> void:
 	var batch = BatchStateData2D.from_bytes(bytes)
@@ -107,7 +108,8 @@ func process_send_rate(delta: float) -> void:
 		_counter = 0.0
 
 func add_sent_bytes(amount: int) -> void:
-	sent_bytes += amount
+	var udp_header = 8 # 64 bit udp header
+	sent_bytes += udp_header + amount
 
 func get_sent_bits() -> int:
 	return sent_bytes * 8

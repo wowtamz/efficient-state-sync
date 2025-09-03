@@ -81,17 +81,6 @@ func process_states(delta: float) -> void:
 			_counter = 0.0
 			change_state()
 
-## DEPRECATED function
-func process_state_sync(delta: float) -> void:
-	_counter2 += delta
-	if _counter2 > 1.0 / float(_send_rate):
-		_counter2 = 0.0
-		
-		var packet = get_packet()
-		
-		if packet.has_data():
-			send_packet(packet)
-
 func get_packet() -> Variant:
 	var packet = StateData2D.new()
 	if state != last_state:
@@ -110,11 +99,6 @@ func get_packet() -> Variant:
 	if packet.has_data():
 		return packet
 	return null
-
-func send_packet(packet: StateData) -> void:
-	var byte_array: PackedByteArray = packet.to_bytes()
-	get_parent().add_sent_bytes(byte_array.size())
-	get_parent().get_node(\"shadow\").on_receive_packet(byte_array)
 
 func process_movement(delta: float) -> void:
 	
