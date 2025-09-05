@@ -15,6 +15,8 @@ var _use_batching: bool = false
 var id_counter = 0
 var shadows := Dictionary()
 
+var time: int = 0
+
 func _ready() -> void:
 	connect_buttons()
 
@@ -101,6 +103,8 @@ func process_state_sync(delta: float) -> void:
 	_send_rate_counter += delta
 	if _send_rate_counter > 1.0 / float(send_rate):
 		_send_rate_counter = 0.0
+		time += 1
+		time = time % 65536
 		var batch_data: Dictionary[int, StateData] = {}
 		for node in get_tree().get_nodes_in_group(\"unit\"):
 			var packet = node.get_packet()
@@ -140,6 +144,9 @@ func add_sent_bytes(amount: int) -> void:
 
 func get_sent_bits() -> int:
 	return sent_bytes * 8
+
+func get_time() -> int:
+	return time
 
 func get_unit(id: int) -> Node2D:
 	for node in get_tree().get_nodes_in_group(\"unit\"):

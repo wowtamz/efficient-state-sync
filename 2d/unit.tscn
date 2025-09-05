@@ -83,6 +83,7 @@ func process_states(delta: float) -> void:
 
 func get_packet() -> Variant:
 	var packet = StateData2D.new()
+	
 	if state != last_state:
 		packet.append(StateData2D.STATE, state)
 		last_state = state
@@ -97,6 +98,8 @@ func get_packet() -> Variant:
 		last_rot = rotation
 
 	if packet.has_data():
+		packet.get_data().push_front(get_parent().get_time())
+		packet.get_map().insert(0, StateData2D.TIME)
 		return packet
 	return null
 
