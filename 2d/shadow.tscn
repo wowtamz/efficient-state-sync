@@ -21,37 +21,99 @@ var state: int = 0 : set = set_state
 var pos: Vector2 = position
 
 var snapshots: Array[StateData] = []
+var current_snapshot: StateData
 
 var _latency: float = 0.2
 var _packet_loss: float = 0.0
 
+var _t_delta: int = 1
+
+var _from_pos: Vector2 = position
+var _to_pos: Vector2 = position
+
+var _lerp: bool = true
+var _step_factor: float = 1.0
+var _last_time: int = 0
+var _vel: Vector2 = Vector2()
+
+var t: float = 0.0 ## Lerp progress
+
 func _ready() -> void:
-	set_process(false)
+	set_process(true)
 
-func _process(_delta: float) -> void:
-	#position = lerp(position, pos, 0.15)
-	if snapshots.size() > 2:
-		var state_data: StateData = snapshots[1]
-		var state_map = state_data.get_map()
-		if StateData2D.POS_X in state_map:
-			var val = state_data.get_value(StateData2D.POS_X)
-			position.x = lerp(position.x, val + (get_viewport_rect().size.x / 2) - 64, 0.35)
-		if StateData2D.POS_Y in state_map:
-			var val = state_data.get_value(StateData2D.POS_Y)
-			position.y = lerp(position.y, val, 0.35)
+func set_lerp(val: bool) -> void:
+	_lerp = val
+	if val:
+		t = 0.0
 
-func add_snapshot(data: StateData) -> void:
-	snapshots.append(data)
-	if snapshots.size() > 5:
-		snapshots.pop_front()
+func _process(delta: float) -> void:
+	process_lerp(delta)
+
+func process_lerp(delta: float) -> void:
+	if _lerp:
+		var steps_per_frame = get_parent().send_rate * delta
+		if t > 1.0:
+			go_to_next_lerp_target()
+		t += steps_per_frame * _step_factor
+		position = _from_pos.lerp(_to_pos, t)
+
+func update_target_pos(state: StateData) -> void:
+	if state and state.get_value(StateData.TIME) > _last_time:
+		var x = state.get_value(StateData2D.POS_X)
+		var y = state.get_value(StateData2D.POS_Y)
+		_to_pos = Vector2(x if x else position.x, y if y else position.y)
+		_last_time = state.get_value(StateData.TIME)
+	else:
+		print(\"T_DELTA < 0\") # Jitter here!
+
+func update_extrapolate_pos() -> void:
+	_step_factor = 0.5
+	_vel = (_to_pos - _from_pos)
+	_to_pos += _vel
+
+func go_to_next_lerp_target():
+	t = 0.0
+	_from_pos = position
+	var next_state = null
+	if snapshots.is_empty():
+		_step_factor = 0.1
+		update_extrapolate_pos()
+		print(\"extrapolate\")
+	elif snapshots.size() == 1:
+		_step_factor = 0.75
+		next_state = snapshots.pop_front()
+		print(\"move towards latest\")
+	else:
+		next_state = snapshots.pop_at(snapshots.size() - 2)
+		if next_state.get_value(StateData.TIME) > _last_time:
+			_step_factor = float(next_state.get_value(StateData.TIME) - _last_time)
+		print(\"move towards previous\")
+	
+	if next_state:
+		update_target_pos(next_state)
+
+func append_snapshot(n_snapshot: StateData) -> void:
+	
+	if snapshots.size() == 0: # Base case
+		snapshots.append(n_snapshot)
+		return
+	
+	if check_packet_time(snapshots.back(), n_snapshot):
+		snapshots.append(n_snapshot)
+
+func check_packet_time(last_state, new_state) -> bool:
+	return last_state.get_value(StateData.TIME) < new_state.get_value(StateData.TIME) or (last_state.get_value(StateData.TIME) > 65000 and new_state.get_value(StateData.TIME) < 200)
 
 func on_receive_packet(packet: PackedByteArray) -> void:
 	if is_packet_lost(): # Simulate packet loss
 		return
 	var state_data: StateData = StateData2D.from_bytes(packet)
-	#add_snapshot(state_data)
-	await get_tree().create_timer(_latency).timeout
-	sync_state(state_data)
+	var lat = _latency - randf_range(0.0, _latency)
+	await get_tree().create_timer(lat).timeout
+	if _lerp:
+		append_snapshot(state_data)
+	else:
+		sync_state(state_data)
 
 func is_packet_lost() -> bool:
 	if _packet_loss:
@@ -72,7 +134,6 @@ func sync_state(state_data: StateData) -> void:
 	if pos_y:
 		position.y = pos_y
 	if rot:
-		print(rot)
 		rotation = rot
 	if _state:
 		state = _state
