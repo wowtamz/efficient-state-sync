@@ -1,4 +1,4 @@
-[gd_scene load_steps=3 format=3 uid="uid://ddp6wlxjov6ll"]
+[gd_scene load_steps=4 format=3 uid="uid://ddp6wlxjov6ll"]
 
 [ext_resource type="Texture2D" uid="uid://g57nmh0fwuva" path="res://icon.svg" id="1_6pqxc"]
 
@@ -31,7 +31,7 @@ var _t_delta: int = 1
 var _from_pos: Vector2 = position
 var _to_pos: Vector2 = position
 
-var _lerp: bool = true
+var _lerp: bool = false
 var _step_factor: float = 1.0
 var _last_time: int = 0
 var _vel: Vector2 = Vector2()
@@ -110,10 +110,11 @@ func on_receive_packet(packet: PackedByteArray) -> void:
 	var state_data: StateData = StateData2D.from_bytes(packet)
 	var lat = _latency - randf_range(0.0, _latency)
 	await get_tree().create_timer(lat).timeout
-	if _lerp:
-		append_snapshot(state_data)
-	else:
-		sync_state(state_data)
+	$interpolate.on_new_snapshot(state_data)
+	#if _lerp:
+	#	append_snapshot(state_data)
+	#else:
+	#	sync_state(state_data)
 
 func is_packet_lost() -> bool:
 	if _packet_loss:
@@ -148,9 +149,84 @@ func set_packet_loss(val: float) -> void:
 	_packet_loss = val
 "
 
+[sub_resource type="GDScript" id="GDScript_bbwug"]
+script/source = "extends Node
+
+var _pos_buffer: Array
+
+var _start_pos: Vector2
+var _end_pos: Vector2
+
+#var _last_tick: int = 0
+var _lerp_progress: float = 0.0
+var _lerp_factor: float = 1.0
+
+func _ready() -> void:
+	set_process(false)
+
+func _process(delta: float) -> void:
+	
+	if _lerp_progress > 1.0:
+		go_to_next_lerp_pos()
+	
+	var packets_per_sec: float = get_parent().get_parent().send_rate
+	var frames_per_sec: float = 1.0 / delta
+	var steps_per_frame: float = packets_per_sec / frames_per_sec  # 1.0 / ((1.0 / packets_per_sec) / delta) #
+	print(\"steps: \",  steps_per_frame)
+	print(\"factor: \", _lerp_factor)
+	_lerp_progress += steps_per_frame * _lerp_factor
+	get_parent().position = _start_pos.lerp(_end_pos, _lerp_progress)
+
+func go_to_next_lerp_pos() -> void:
+	_lerp_progress = 0.0
+	_start_pos = get_parent().position
+	
+	var next_pos = null
+	
+	if _pos_buffer.is_empty():
+		print(\"extrapolate 1\")
+	elif _pos_buffer.size() == 1:
+		print(\"extrapolate 2\")
+	elif _pos_buffer.size() == 2: # _pos_buffer.size() > 1
+		print(\"interpolate 1\")
+	else:
+		var old_state = _pos_buffer.pop_front()
+		var next_state = _pos_buffer.pop_front()
+		_start_pos = get_pos(old_state)
+		_end_pos = get_pos(next_state)
+		_lerp_factor = get_tick(next_state) - get_tick(old_state)
+
+func set_next_lerp_target(pos: Vector2) -> void:
+	pass
+
+func on_new_snapshot(state_data: StateData) -> void:
+	
+	var prev_t = get_tick(_pos_buffer.back()) if not _pos_buffer.is_empty() else 0
+	var t = state_data.get_value(StateData.TIME)
+	
+	if t > prev_t or (t < 100 and prev_t > 65000):
+		var x = state_data.get_value(StateData2D.POS_X)
+		var y = state_data.get_value(StateData2D.POS_Y)
+		_pos_buffer.append(
+			[t, Vector2(x if x else get_parent().position.x, y if y else get_parent().position.y)]
+		)
+	
+	if _pos_buffer.size() > 2:
+		set_process(true)
+
+func get_tick(array: Array) -> int:
+	return array.get(0)
+
+func get_pos(array: Array) -> Vector2:
+	return array.get(1)
+"
+
 [node name="shadow" type="Sprite2D" groups=["shadow"]]
 modulate = Color(1, 1, 1, 0.596078)
 self_modulate = Color(1, 1, 1, 0.529412)
 scale = Vector2(0.5, 0.5)
 texture = ExtResource("1_6pqxc")
 script = SubResource("GDScript_6pqxc")
+
+[node name="interpolate" type="Node" parent="."]
+script = SubResource("GDScript_bbwug")
