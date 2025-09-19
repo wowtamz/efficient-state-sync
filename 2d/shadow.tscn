@@ -31,78 +31,16 @@ var _t_delta: int = 1
 var _from_pos: Vector2 = position
 var _to_pos: Vector2 = position
 
-var _lerp: bool = false
+var _lerp: bool = true
 var _step_factor: float = 1.0
 var _last_time: int = 0
 var _vel: Vector2 = Vector2()
-
-var t: float = 0.0 ## Lerp progress
 
 func _ready() -> void:
 	set_process(true)
 
 func set_lerp(val: bool) -> void:
 	_lerp = val
-	if val:
-		t = 0.0
-
-func _process(delta: float) -> void:
-	process_lerp(delta)
-
-func process_lerp(delta: float) -> void:
-	if _lerp:
-		var steps_per_frame = get_parent().send_rate * delta
-		if t > 1.0:
-			go_to_next_lerp_target()
-		t += steps_per_frame * _step_factor
-		position = _from_pos.lerp(_to_pos, t)
-
-func update_target_pos(state: StateData) -> void:
-	if state and state.get_value(StateData.TIME) > _last_time:
-		var x = state.get_value(StateData2D.POS_X)
-		var y = state.get_value(StateData2D.POS_Y)
-		_to_pos = Vector2(x if x else position.x, y if y else position.y)
-		_last_time = state.get_value(StateData.TIME)
-	else:
-		print(\"T_DELTA < 0\") # Jitter here!
-
-func update_extrapolate_pos() -> void:
-	_step_factor = 0.5
-	_vel = (_to_pos - _from_pos)
-	_to_pos += _vel
-
-func go_to_next_lerp_target():
-	t = 0.0
-	_from_pos = position
-	var next_state = null
-	if snapshots.is_empty():
-		_step_factor = 0.1
-		update_extrapolate_pos()
-		print(\"extrapolate\")
-	elif snapshots.size() == 1:
-		_step_factor = 0.75
-		next_state = snapshots.pop_front()
-		print(\"move towards latest\")
-	else:
-		next_state = snapshots.pop_at(snapshots.size() - 2)
-		if next_state.get_value(StateData.TIME) > _last_time:
-			_step_factor = float(next_state.get_value(StateData.TIME) - _last_time)
-		print(\"move towards previous\")
-	
-	if next_state:
-		update_target_pos(next_state)
-
-func append_snapshot(n_snapshot: StateData) -> void:
-	
-	if snapshots.size() == 0: # Base case
-		snapshots.append(n_snapshot)
-		return
-	
-	if check_packet_time(snapshots.back(), n_snapshot):
-		snapshots.append(n_snapshot)
-
-func check_packet_time(last_state, new_state) -> bool:
-	return last_state.get_value(StateData.TIME) < new_state.get_value(StateData.TIME) or (last_state.get_value(StateData.TIME) > 65000 and new_state.get_value(StateData.TIME) < 200)
 
 func on_receive_packet(packet: PackedByteArray) -> void:
 	if is_packet_lost(): # Simulate packet loss
@@ -110,11 +48,10 @@ func on_receive_packet(packet: PackedByteArray) -> void:
 	var state_data: StateData = StateData2D.from_bytes(packet)
 	var lat = _latency - randf_range(0.0, _latency)
 	await get_tree().create_timer(lat).timeout
-	$interpolate.on_new_snapshot(state_data)
-	#if _lerp:
-	#	append_snapshot(state_data)
-	#else:
-	#	sync_state(state_data)
+	if _lerp:
+		$interpolate.on_new_snapshot(state_data)
+	else:
+		sync_state(state_data)
 
 func is_packet_lost() -> bool:
 	if _packet_loss:
@@ -157,67 +94,133 @@ var _pos_buffer: Array
 var _start_pos: Vector2
 var _end_pos: Vector2
 
-#var _last_tick: int = 0
+var _last_tick: int = 0
 var _lerp_progress: float = 0.0
 var _lerp_factor: float = 1.0
+var _lerp_limit: float = 1.0
 
 func _ready() -> void:
 	set_process(false)
 
 func _process(delta: float) -> void:
 	
-	if _lerp_progress > 1.0:
-		go_to_next_lerp_pos()
+	if _lerp_progress >= _lerp_limit:
+		get_next_state()
+		#go_to_next_lerp_pos()
 	
 	var packets_per_sec: float = get_parent().get_parent().send_rate
 	var frames_per_sec: float = 1.0 / delta
 	var steps_per_frame: float = packets_per_sec / frames_per_sec  # 1.0 / ((1.0 / packets_per_sec) / delta) #
-	print(\"steps: \",  steps_per_frame)
-	print(\"factor: \", _lerp_factor)
+	#var steps_per_sec: float = packets_per_sec * delta
+	#print(\"steps: \",  steps_per_frame)
+	#print(\"factor: \", _lerp_factor)
 	_lerp_progress += steps_per_frame * _lerp_factor
+	_lerp_progress = clamp(_lerp_progress, 0.0, _lerp_limit)
+	assert(_lerp_progress <= _lerp_limit)
 	get_parent().position = _start_pos.lerp(_end_pos, _lerp_progress)
 
-func go_to_next_lerp_pos() -> void:
+func begin_lerp_to(pos: Vector2, duration: float) -> void:
+	_lerp_progress = 0.0
+	_start_pos = get_parent().position
+	_end_pos = pos
+
+func get_next_state() -> void:
+	
 	_lerp_progress = 0.0
 	_start_pos = get_parent().position
 	
-	var next_pos = null
+	var next_state = null
+	
+	var n = _pos_buffer.size()
 	
 	if _pos_buffer.is_empty():
+		_lerp_progress = 1.0
+		print(\"no state left\")
+		return
+	elif n >= 1 and n <= 2:
+		_lerp_factor = 0.25
+		next_state = _pos_buffer.pop_front()
+	elif n == 3:
+		_lerp_factor = 0.8
+		next_state = _pos_buffer.pop_front()
+	else:
+		print(n)
+		var index = n - 3
+		next_state = _pos_buffer.pop_at(index)
+		_lerp_factor = 1.0 / float(abs(get_tick(next_state) - _last_tick) % 65536)
+		# Erase previous states
+		for i in range(index):
+			_pos_buffer.pop_front()
+	
+	if next_state:
+		_last_tick = get_tick(next_state)
+		_end_pos = get_pos_array(next_state)
+
+func go_to_next_lerp_pos() -> void:
+	_lerp_limit = 1.0
+	_lerp_progress = 0.0
+	_start_pos = get_parent().position
+	
+	var next_state = null
+	
+	if _pos_buffer.is_empty():
+		#_lerp_limit = 1.5
+		#assert(false)
+		_end_pos = get_parent().position
 		print(\"extrapolate 1\")
 	elif _pos_buffer.size() == 1:
+		_lerp_limit = 1.5
+		_lerp_factor = 0.25
+		next_state = _pos_buffer.pop_front()
 		print(\"extrapolate 2\")
 	elif _pos_buffer.size() == 2: # _pos_buffer.size() > 1
+		_lerp_limit = 1.25
+		_lerp_factor = 0.5
+		next_state = _pos_buffer.pop_front()
 		print(\"interpolate 1\")
 	else:
-		var old_state = _pos_buffer.pop_front()
-		var next_state = _pos_buffer.pop_front()
-		_start_pos = get_pos(old_state)
-		_end_pos = get_pos(next_state)
-		_lerp_factor = get_tick(next_state) - get_tick(old_state)
+		_lerp_factor = 1.0
+		next_state = _pos_buffer.pop_front()
+		print(\"else\")
+	
+	if next_state:
+		#_lerp_factor = 1 / (get_tick(next_state) - _last_tick)
+		_last_tick = get_tick(next_state)
+		_end_pos = get_pos_array(next_state)
 
+@warning_ignore(\"unused_parameter\")
 func set_next_lerp_target(pos: Vector2) -> void:
 	pass
 
 func on_new_snapshot(state_data: StateData) -> void:
-	
-	var prev_t = get_tick(_pos_buffer.back()) if not _pos_buffer.is_empty() else 0
+	var prev_t = get_tick(_pos_buffer.back()) if not _pos_buffer.is_empty() else -1
 	var t = state_data.get_value(StateData.TIME)
 	
 	if t > prev_t or (t < 100 and prev_t > 65000):
-		var x = state_data.get_value(StateData2D.POS_X)
-		var y = state_data.get_value(StateData2D.POS_Y)
 		_pos_buffer.append(
-			[t, Vector2(x if x else get_parent().position.x, y if y else get_parent().position.y)]
+			[t, get_pos_state_data(state_data)]
 		)
 	
-	if _pos_buffer.size() > 2:
+	# Set initial position
+	if not is_processing() and _pos_buffer.size() > 2:
+		print(\"initialized position\")
+		var init_state = _pos_buffer.pop_front()
+		var pos = get_pos_array(init_state)
+		set_parent_pos(pos)
 		set_process(true)
+
+func set_parent_pos(vec: Vector2) -> void:
+	get_parent().position = vec
+
+func get_pos_state_data(data: StateData) -> Vector2:
+	var x = data.get_value(StateData2D.POS_X)
+	var y = data.get_value(StateData2D.POS_Y)
+	return Vector2(x if x else get_parent().position.x, y if y else get_parent().position.y)
 
 func get_tick(array: Array) -> int:
 	return array.get(0)
 
-func get_pos(array: Array) -> Vector2:
+func get_pos_array(array: Array) -> Vector2:
 	return array.get(1)
 "
 
