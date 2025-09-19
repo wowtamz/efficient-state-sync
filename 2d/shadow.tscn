@@ -26,21 +26,14 @@ var current_snapshot: StateData
 var _latency: float = 0.2
 var _packet_loss: float = 0.0
 
-var _t_delta: int = 1
-
-var _from_pos: Vector2 = position
-var _to_pos: Vector2 = position
-
 var _lerp: bool = true
-var _step_factor: float = 1.0
-var _last_time: int = 0
-var _vel: Vector2 = Vector2()
 
 func _ready() -> void:
 	set_process(true)
 
 func set_lerp(val: bool) -> void:
 	_lerp = val
+	$interpolate.set_process(val)
 
 func on_receive_packet(packet: PackedByteArray) -> void:
 	if is_packet_lost(): # Simulate packet loss
@@ -110,10 +103,8 @@ func _process(delta: float) -> void:
 	
 	var packets_per_sec: float = get_parent().get_parent().send_rate
 	var frames_per_sec: float = 1.0 / delta
-	var steps_per_frame: float = packets_per_sec / frames_per_sec  # 1.0 / ((1.0 / packets_per_sec) / delta) #
-	#var steps_per_sec: float = packets_per_sec * delta
-	#print(\"steps: \",  steps_per_frame)
-	#print(\"factor: \", _lerp_factor)
+	var steps_per_frame: float = packets_per_sec / frames_per_sec
+	
 	_lerp_progress += steps_per_frame * _lerp_factor
 	_lerp_progress = clamp(_lerp_progress, 0.0, _lerp_limit)
 	assert(_lerp_progress <= _lerp_limit)
@@ -135,7 +126,7 @@ func get_next_state() -> void:
 	
 	if _pos_buffer.is_empty():
 		_lerp_progress = 1.0
-		print(\"no state left\")
+		print(\"waiting for state\")
 		return
 	elif n >= 1 and n <= 2:
 		_lerp_factor = 0.25
@@ -144,7 +135,6 @@ func get_next_state() -> void:
 		_lerp_factor = 0.8
 		next_state = _pos_buffer.pop_front()
 	else:
-		print(n)
 		var index = n - 3
 		next_state = _pos_buffer.pop_at(index)
 		_lerp_factor = 1.0 / float(abs(get_tick(next_state) - _last_tick) % 65536)
@@ -154,43 +144,7 @@ func get_next_state() -> void:
 	
 	if next_state:
 		_last_tick = get_tick(next_state)
-		_end_pos = get_pos_array(next_state)
-
-func go_to_next_lerp_pos() -> void:
-	_lerp_limit = 1.0
-	_lerp_progress = 0.0
-	_start_pos = get_parent().position
-	
-	var next_state = null
-	
-	if _pos_buffer.is_empty():
-		#_lerp_limit = 1.5
-		#assert(false)
-		_end_pos = get_parent().position
-		print(\"extrapolate 1\")
-	elif _pos_buffer.size() == 1:
-		_lerp_limit = 1.5
-		_lerp_factor = 0.25
-		next_state = _pos_buffer.pop_front()
-		print(\"extrapolate 2\")
-	elif _pos_buffer.size() == 2: # _pos_buffer.size() > 1
-		_lerp_limit = 1.25
-		_lerp_factor = 0.5
-		next_state = _pos_buffer.pop_front()
-		print(\"interpolate 1\")
-	else:
-		_lerp_factor = 1.0
-		next_state = _pos_buffer.pop_front()
-		print(\"else\")
-	
-	if next_state:
-		#_lerp_factor = 1 / (get_tick(next_state) - _last_tick)
-		_last_tick = get_tick(next_state)
-		_end_pos = get_pos_array(next_state)
-
-@warning_ignore(\"unused_parameter\")
-func set_next_lerp_target(pos: Vector2) -> void:
-	pass
+		_end_pos = get_pos_array(next_state) + Vector2((get_parent().get_viewport_rect().size.x / 2) - 64, 0)
 
 func on_new_snapshot(state_data: StateData) -> void:
 	var prev_t = get_tick(_pos_buffer.back()) if not _pos_buffer.is_empty() else -1

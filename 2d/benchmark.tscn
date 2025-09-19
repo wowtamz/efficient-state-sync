@@ -55,6 +55,7 @@ func add_shadow(id: int = id_counter) -> void:
 func connect_buttons() -> void:
 	$ui/b_add.connect(\"pressed\", Callable(self, \"spawn_object\"))
 	$ui/b_remove.connect(\"pressed\", Callable(self, \"despawn_object\"))
+	$ui/b_lerp.connect(\"toggled\", Callable(self, \"set_use_lerp\"))
 	$ui/b_batch.connect(\"toggled\", Callable(self, \"set_use_batching\"))
 	$ui/b_vert.connect(\"toggled\", Callable(self, \"set_move_vertically\"))
 	$ui/b_hor.connect(\"toggled\", Callable(self, \"set_move_horizontally\"))
@@ -63,6 +64,10 @@ func connect_buttons() -> void:
 	$ui/b_packet_count/spinbox.connect(\"value_changed\", Callable(self, \"set_send_rate\"))
 	$ui/b_latency/spinbox.connect(\"value_changed\", Callable(self, \"set_latency\"))
 	$ui/b_packet_loss/spinbox.connect(\"value_changed\", Callable(self, \"set_packet_loss\"))
+
+func set_use_lerp(val: bool):
+	for node in get_tree().get_nodes_in_group(\"shadow\"):
+		node.set_lerp(val)
 
 func set_use_batching(val: bool):
 	_use_batching = val
@@ -199,6 +204,11 @@ text = "Add unit"
 [node name="b_remove" type="Button" parent="ui"]
 layout_mode = 2
 text = "Remove unit"
+
+[node name="b_lerp" type="Button" parent="ui"]
+layout_mode = 2
+toggle_mode = true
+text = "Use lerp"
 
 [node name="b_batch" type="Button" parent="ui"]
 layout_mode = 2
