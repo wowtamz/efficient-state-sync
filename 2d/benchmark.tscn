@@ -133,14 +133,14 @@ func on_receive_batch(bytes: PackedByteArray) -> void:
 		var shadow = get_shadow(key)
 		if shadow:
 			var state_data: StateData = batch.get_data()[key]
-			shadow.sync_state(state_data)
+			shadow.on_receive_packet(state_data.to_bytes())
 
 func process_send_rate(delta: float) -> void:
 	_counter += delta
 	if _counter >= 1.0:
 		var bits_per_sec = sent_bytes * 8
 		$ui/bps.text = \"%.2f kbits/sec\" % (float(bits_per_sec) / 1000.0) if bits_per_sec > 500 else \"%d bits/sec\" % bits_per_sec
-		sent_bytes = 0.0
+		sent_bytes = 0
 		_counter = 0.0
 
 func add_sent_bytes(amount: int) -> void:
