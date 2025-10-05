@@ -51,6 +51,7 @@ func add_shadow(id: int = id_counter) -> void:
 	var new_shadow = shadow_scene.instantiate()
 	new_shadow.id = id_counter
 	add_child(new_shadow)
+	new_shadow.set_lerp($ui/b_lerp.button_pressed)
 
 func connect_buttons() -> void:
 	$ui/b_add.connect(\"pressed\", Callable(self, \"spawn_object\"))

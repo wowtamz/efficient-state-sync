@@ -26,7 +26,7 @@ var current_snapshot: StateData
 var _latency: float = 0.2
 var _packet_loss: float = 0.0
 
-var _lerp: bool = true
+var _lerp: bool = false
 
 func _ready() -> void:
 	set_process(true)
@@ -84,11 +84,17 @@ script/source = "extends Node
 
 var _pos_buffer: Array
 var _rot_buffer: Array
+var _state_buffer: Array
+
+var _end_state: int = 0
 
 var _start_pos: Vector2
 var _end_pos: Vector2
+var _last_pos: Vector2
 
-var _last_tick: int = 0
+var _last_pos_tick: int = 0
+var _last_rot_tick: int = 0
+var _last_state_tick: int = 0
 var _lerp_progress: float = 0.0
 var _lerp_factor: float = 1.0
 var _lerp_limit: float = 1.0
@@ -98,92 +104,125 @@ var _lerp_angle_speed: float = 1.0
 var _start_angle: float
 var _end_angle: float
 
+var _state_progress: float = 0.0
+var _state_progress_factor: float = 1.0
+
 func _ready() -> void:
 	set_process(false)
 
-func _process(delta: float) -> void:
+func update_lerp_pos() -> void:
+	_lerp_progress = 0.0
+	_start_pos = get_parent().position
+	
+	while _pos_buffer.size() > 4:
+		_pos_buffer.pop_front()
+	
+	if _pos_buffer.is_empty() or _pos_buffer.size() == 1:
+		_lerp_progress = 1.0
+	else:
+		var next_state = _pos_buffer.pop_front()
+		_end_pos = get_data(next_state) + Vector2((get_parent().get_viewport_rect().size.x / 2) - 64, 0)
+		_lerp_factor = 1.0 / float(abs(get_tick(next_state) - _last_pos_tick) % 65536)
+		var delta_t = get_tick(next_state) - _last_pos_tick
+		
+		if delta_t > 15:
+			get_parent().position = _end_pos
+			_lerp_progress = 1.0
+		assert(delta_t >= 0)
+		_last_pos_tick = get_tick(next_state)
+		if _pos_buffer.size() == 2:
+			_lerp_factor *= 0.75
+		elif _pos_buffer.size() == 3:
+			_lerp_factor *= 0.9
+		else:
+			_lerp_factor *= 1.0
+
+func process_pos_lerp(delta: float) -> void:
 	
 	if _lerp_progress >= _lerp_limit:
-		get_next_state()
-		#go_to_next_lerp_pos()
-	
-	if _lerp_angle_progress >= 1.0:
-		get_next_rot()
+		update_lerp_pos()
 	
 	var packets_per_sec: float = get_parent().get_parent().send_rate
 	var frames_per_sec: float = 1.0 / delta
 	var steps_per_frame: float = packets_per_sec / frames_per_sec
-	
 	_lerp_progress += steps_per_frame * _lerp_factor
-	_lerp_progress = clamp(_lerp_progress, 0.0, _lerp_limit)
-	assert(_lerp_progress <= _lerp_limit)
 	get_parent().position = _start_pos.lerp(_end_pos, _lerp_progress)
-	
-	_lerp_angle_progress += steps_per_frame * _lerp_angle_speed
-	get_parent().rotation = lerp_angle(_start_angle, _end_angle, _lerp_angle_progress)
 
-func begin_lerp_to(pos: Vector2, duration: float) -> void:
-	_lerp_progress = 0.0
-	_start_pos = get_parent().position
-	_end_pos = pos
-
-func get_next_state() -> void:
-	
-	_lerp_progress = 0.0
-	_start_pos = get_parent().position
-	
-	var next_state = null
-	
-	var n = _pos_buffer.size()
-	
-	if _pos_buffer.is_empty():
-		_lerp_progress = 1.0
-		print(\"waiting for state\")
-		return
-	elif n >= 1 and n <= 2:
-		_lerp_factor = 0.25
-		next_state = _pos_buffer.pop_front()
-	elif n == 3:
-		_lerp_factor = 0.8
-		next_state = _pos_buffer.pop_front()
-	else:
-		var index = n - 3
-		next_state = _pos_buffer.pop_at(index)
-		_lerp_factor = 1.0 / float(abs(get_tick(next_state) - _last_tick) % 65536)
-		# Erase previous states
-		for i in range(index):
-			_pos_buffer.pop_front()
-	
-	if next_state:
-		_last_tick = get_tick(next_state)
-		_end_pos = get_pos_array(next_state) + Vector2((get_parent().get_viewport_rect().size.x / 2) - 64, 0)
-
-func get_next_rot() -> void:
+func update_lerp_rot() -> void:
 	_lerp_angle_progress = 0.0
 	_start_angle = get_parent().rotation
 	
-	var next_state = null
+	while _rot_buffer.size() > 4:
+		_rot_buffer.pop_front()
 	
-	var n = _rot_buffer.size()
-	
-	if _rot_buffer.is_empty():
-		_lerp_progress = 1.0
-		return
-	elif n >= 1 and n <= 2:
-		_lerp_angle_speed = 0.25
-	elif n == 3:
-		_lerp_angle_speed = 0.8
+	if _rot_buffer.is_empty() or _rot_buffer.size() == 1:
+		_lerp_angle_progress = 1.0
 	else:
-		var index = n - 3
-		next_state = _rot_buffer.pop_at(index)
-		_lerp_factor = 1.0 / float(abs(get_tick(next_state) - _last_tick) % 65536)
-		# Erase previous states
-		for i in range(index):
-			_rot_buffer.pop_front()
+		var next_state = _rot_buffer.pop_front()
+		_end_angle = get_data(next_state)
+		_lerp_angle_speed = 1.0 / float(abs(get_tick(next_state) - _last_rot_tick) % 65536)
+		var delta_t = get_tick(next_state) - _last_rot_tick
 		
-	if next_state:
-		_last_tick = get_tick(next_state)
-		_end_angle = get_rot_array(next_state)
+		if delta_t > 15:
+			get_parent().rotation = _end_angle
+			_lerp_angle_progress = 1.0
+		
+		assert(delta_t >= 0)
+		_last_rot_tick = get_tick(next_state)
+		
+		if _rot_buffer.size() == 2:
+			_lerp_angle_speed *= 0.75
+		elif _rot_buffer.size() == 3:
+			_lerp_angle_speed *= 0.9
+		else:
+			_lerp_angle_speed *= 1.0
+
+func process_rot_lerp(delta: float) -> void:
+	if _lerp_angle_progress >= 1.0:
+		update_lerp_rot()
+	
+	var packets_per_sec: float = get_parent().get_parent().send_rate
+	var frames_per_sec: float = 1.0 / delta
+	var steps_per_frame: float = packets_per_sec / frames_per_sec
+	_lerp_angle_progress += steps_per_frame * _lerp_angle_speed
+	get_parent().rotation = lerp_angle(_start_angle, _end_angle, _lerp_angle_progress)
+
+func process_state_switch(delta: float) -> void:
+	if _state_progress >= 1.0:
+		get_parent().set_state(_end_state)
+		_state_progress = 0.0
+		while _state_buffer.size() > 4:
+			_state_buffer.pop_front()
+		
+		if _state_buffer.is_empty() or _state_buffer.size() == 1:
+			_state_progress = 1.0
+		else:
+			var next_state = _state_buffer.pop_front()
+			_state_progress_factor = 1.0 / float(abs(get_tick(next_state) - _last_state_tick) % 65536)
+			_last_state_tick = get_tick(next_state)
+			_end_state = get_data(next_state)
+			var delta_t = get_tick(next_state) - _last_state_tick
+		
+			if delta_t > 15:
+				get_parent().set_state(_end_state)
+				_state_progress_factor = 1.0
+			
+			if _state_buffer.size() == 2:
+				_state_progress_factor *= 0.75
+			elif _state_buffer.size() == 3:
+				_state_progress_factor *= 0.9
+			else:
+				_state_progress_factor *= 1.0
+	
+	var packets_per_sec: float = get_parent().get_parent().send_rate
+	var frames_per_sec: float = 1.0 / delta
+	var steps_per_frame: float = packets_per_sec / frames_per_sec
+	_state_progress += steps_per_frame * 1.0
+
+func _process(delta: float) -> void:
+	process_pos_lerp(delta)
+	process_rot_lerp(delta)
+	process_state_switch(delta)
 
 func on_new_snapshot(state_data: StateData) -> void:
 	var prev_t = get_tick(_pos_buffer.back()) if not _pos_buffer.is_empty() else -1
@@ -197,40 +236,31 @@ func on_new_snapshot(state_data: StateData) -> void:
 		_rot_buffer.append(
 			[t, get_rot_state_data(state_data)]
 		)
-	
-	# Set initial position
-	if not is_processing() and _pos_buffer.size() > 2:
-		print(\"initialized position\")
-		var init_pos = _pos_buffer.pop_front()
-		var init_rot = _rot_buffer.pop_front()
-		var pos = get_pos_array(init_pos)
-		var rot = get_rot_array(init_rot)
-		set_parent_pos(pos)
-		set_parent_rot(rot)
-		set_process(true)
-
-func set_parent_pos(vec: Vector2) -> void:
-	get_parent().position = vec
-
-func set_parent_rot(val: float) -> void:
-	get_parent().rotation = val
+		
+		_state_buffer.append(
+			[t, get_state_data(state_data)]
+		)
 
 func get_pos_state_data(data: StateData) -> Vector2:
 	var x = data.get_value(StateData2D.POS_X)
 	var y = data.get_value(StateData2D.POS_Y)
-	return Vector2(x if x else get_parent().position.x, y if y else get_parent().position.y)
+	
+	_last_pos = Vector2(x if x else _last_pos.x, y if y else _last_pos.y)
+	
+	return Vector2(x if x else _last_pos.x, y if y else _last_pos.y)
 
 func get_rot_state_data(data: StateData) -> float:
 	var val = data.get_value(StateData2D.ROT)
 	return val if val else get_parent().rotation
 
+func get_state_data(data: StateData) -> int:
+	var val = data.get_value(StateData.STATE)
+	return val if val else get_parent().state
+
 func get_tick(array: Array) -> int:
 	return array.get(0)
 
-func get_pos_array(array: Array) -> Vector2:
-	return array.get(1)
-
-func get_rot_array(array: Array) -> float:
+func get_data(array: Array) -> Variant:
 	return array.get(1)
 "
 
