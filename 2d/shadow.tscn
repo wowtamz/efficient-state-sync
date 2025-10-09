@@ -89,7 +89,7 @@ var _state_buffer: Array
 var _end_state: int = 0
 
 var _start_pos: Vector2
-var _end_pos: Vector2
+var _end_pos: Variant = null
 var _last_pos: Vector2
 
 var _last_pos_tick: int = 0
@@ -108,6 +108,7 @@ var _state_progress: float = 0.0
 var _state_progress_factor: float = 1.0
 
 func _ready() -> void:
+	_start_pos = get_parent().position
 	set_process(false)
 
 func update_lerp_pos() -> void:
@@ -146,7 +147,8 @@ func process_pos_lerp(delta: float) -> void:
 	var frames_per_sec: float = 1.0 / delta
 	var steps_per_frame: float = packets_per_sec / frames_per_sec
 	_lerp_progress += steps_per_frame * _lerp_factor
-	get_parent().position = _start_pos.lerp(_end_pos, _lerp_progress)
+	if _end_pos:
+		get_parent().position = _start_pos.lerp(_end_pos, _lerp_progress)
 
 func update_lerp_rot() -> void:
 	_lerp_angle_progress = 0.0
