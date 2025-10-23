@@ -21,7 +21,7 @@ var _packet_loss: float = 0.0
 var _lerp: bool = false
 
 func _ready() -> void:
-	set_process(true)
+	pass
 
 func on_receive_packet(packet: PackedByteArray) -> void:
 	
@@ -85,6 +85,7 @@ func set_state(new_state: int) -> void:
 
 func set_lerp(val: bool) -> void:
 	_lerp = val
+	$interpolate._last_pos = position
 	$interpolate.set_process(val)
 
 func set_latency(ms: float) -> void:
@@ -100,7 +101,8 @@ func set_packet_loss(val: float) -> void:
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_shm6d"]
 transparency = 1
 blend_mode = 1
-albedo_color = Color(1, 1, 1, 0.8)
+diffuse_mode = 1
+albedo_color = Color(1, 1, 1, 0.5176471)
 
 [sub_resource type="BoxMesh" id="BoxMesh_gt6dh"]
 material = SubResource("StandardMaterial3D_shm6d")
@@ -149,7 +151,7 @@ func update_lerp_pos() -> void:
 		_lerp_progress = 1.0
 	else:
 		var next_state = _pos_buffer.pop_front()
-		_end_pos = get_data(next_state) + Vector3(-4.0, 0.0, 0.0)#Vector2((get_parent().get_viewport_rect().size.x / 2) - 64, 0)
+		_end_pos = get_data(next_state)
 		_lerp_factor = 1.0 / float(abs(get_tick(next_state) - _last_pos_tick) % 65536)
 		var delta_t = get_tick(next_state) - _last_pos_tick
 		
@@ -280,9 +282,11 @@ func get_pos_state_data(data: StateData) -> Vector3:
 	var y = data.get_value(StateData3D.POS_Y)
 	var z = data.get_value(StateData3D.POS_Z)
 	
-	_last_pos = Vector3(x if x else _last_pos.x, y if y else _last_pos.y, z if z else _last_pos.z)
+	var offset = -4.0
 	
-	return Vector3(x if x else _last_pos.x, y if y else _last_pos.y, z if z else _last_pos.z)
+	_last_pos = Vector3(x + offset if x else _last_pos.x, y if y else _last_pos.y, z if z else _last_pos.z)
+	
+	return Vector3(x + offset if x else _last_pos.x, y if y else _last_pos.y, z if z else _last_pos.z)
 
 func get_rot_state_data(data: StateData) -> Vector3:
 	var x = data.get_value(StateData3D.ROT_X)
