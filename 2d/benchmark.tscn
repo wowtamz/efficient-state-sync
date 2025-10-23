@@ -7,7 +7,7 @@ var unit_scene: PackedScene = preload(\"res://2d/unit.tscn\")
 var shadow_scene: PackedScene = preload(\"res://2d/shadow.tscn\")
 
 var sent_bytes: int = 0
-var send_rate: int = 30
+var send_rate: int = 15
 var _counter: float = 0.0
 var _send_rate_counter: float = 0.0
 var _use_batching: bool = false
@@ -256,7 +256,7 @@ text = "packets/sec"
 
 [node name="spinbox" type="SpinBox" parent="ui/b_packet_count"]
 layout_mode = 2
-value = 30.0
+value = 15.0
 
 [node name="b_latency" type="HBoxContainer" parent="ui"]
 layout_mode = 2
