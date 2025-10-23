@@ -115,7 +115,6 @@ var _state_progress: float = 0.0
 var _state_progress_factor: float = 1.0
 
 func _ready() -> void:
-	_start_pos = get_parent().position
 	set_process(false)
 
 func update_lerp_pos() -> void:
@@ -129,7 +128,7 @@ func update_lerp_pos() -> void:
 		_lerp_progress = 1.0
 	else:
 		var next_state = _pos_buffer.pop_front()
-		_end_pos = get_data(next_state) + Vector2((get_parent().get_viewport_rect().size.x / 2) - 64, 0)
+		_end_pos = get_data(next_state)
 		_lerp_factor = 1.0 / float(abs(get_tick(next_state) - _last_pos_tick) % 65536)
 		var delta_t = get_tick(next_state) - _last_pos_tick
 		
@@ -254,9 +253,11 @@ func get_pos_state_data(data: StateData) -> Vector2:
 	var x = data.get_value(StateData2D.POS_X)
 	var y = data.get_value(StateData2D.POS_Y)
 	
-	_last_pos = Vector2(x if x else _last_pos.x, y if y else _last_pos.y)
+	var offset = (get_parent().get_viewport_rect().size.x / 2) - 64
 	
-	return Vector2(x if x else _last_pos.x, y if y else _last_pos.y)
+	_last_pos = Vector2(x + offset if x else _last_pos.x, y if y else _last_pos.y)
+	
+	return Vector2(x + offset if x else _last_pos.x, y if y else _last_pos.y)
 
 func get_rot_state_data(data: StateData) -> float:
 	var val = data.get_value(StateData2D.ROT)
