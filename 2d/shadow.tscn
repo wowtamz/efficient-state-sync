@@ -24,6 +24,7 @@ var snapshots: Array[StateData] = []
 var current_snapshot: StateData
 
 var _latency: float = 0.2
+var _jitter: float = 0.01
 var _packet_loss: float = 0.0
 
 var _lerp: bool = false
@@ -39,7 +40,10 @@ func on_receive_packet(packet: PackedByteArray) -> void:
 	if is_packet_lost(): # Simulate packet loss
 		return
 	var state_data: StateData = StateData2D.from_bytes(packet)
-	var lat = _latency - randf_range(0.0, _latency)
+	
+	var jitter = -_jitter if randi_range(0, 1) == 1 else _jitter
+	
+	var lat = _latency + jitter
 	await get_tree().create_timer(lat).timeout
 	if _lerp:
 		$interpolate.on_new_snapshot(state_data)
@@ -74,6 +78,9 @@ func set_state(new_state: int) -> void:
 
 func set_latency(ms: float) -> void:
 	_latency = ms / 1000.0
+
+func set_jitter(ms: float) -> void:
+	_jitter = ms / 1000.0
 
 func set_packet_loss(val: float) -> void:
 	_packet_loss = val

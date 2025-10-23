@@ -64,6 +64,7 @@ func connect_buttons() -> void:
 	$ui/b_rotation.connect(\"toggled\", Callable(self, \"apply_rotation\"))
 	$ui/b_packet_count/spinbox.connect(\"value_changed\", Callable(self, \"set_send_rate\"))
 	$ui/b_latency/spinbox.connect(\"value_changed\", Callable(self, \"set_latency\"))
+	$ui/b_jitter/spinbox.connect(\"value_changed\", Callable(self, \"set_jitter\"))
 	$ui/b_packet_loss/spinbox.connect(\"value_changed\", Callable(self, \"set_packet_loss\"))
 
 func set_use_lerp(val: bool):
@@ -95,6 +96,10 @@ func set_send_rate(val: int) -> void:
 func set_latency(ms: float) -> void:
 	for node in get_tree().get_nodes_in_group(\"shadow\"):
 		node.set_latency(ms)
+
+func set_jitter(ms: float) -> void:
+	for node in get_tree().get_nodes_in_group(\"shadow\"):
+		node.set_jitter(ms)
 
 func set_packet_loss(val: float) -> void:
 	for node in get_tree().get_nodes_in_group(\"shadow\"):
@@ -265,6 +270,18 @@ layout_mode = 2
 max_value = 1000.0
 step = 0.5
 value = 100.0
+
+[node name="b_jitter" type="HBoxContainer" parent="ui"]
+layout_mode = 2
+
+[node name="label" type="Label" parent="ui/b_jitter"]
+layout_mode = 2
+text = "jitter in ms"
+
+[node name="spinbox" type="SpinBox" parent="ui/b_jitter"]
+layout_mode = 2
+max_value = 250.0
+value = 10.0
 
 [node name="b_packet_loss" type="HBoxContainer" parent="ui"]
 layout_mode = 2
