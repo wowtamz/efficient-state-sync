@@ -59,7 +59,7 @@ func sync_state(state_data: StateData) -> void:
 	_state = state_data.get_value(StateData3D.STATE)
 	
 	if pos_x:
-		position.x = -4.0 + pos_x
+		position.x = -5.0 + pos_x
 	if pos_y:
 		position.y = pos_y
 	if pos_z:
@@ -82,6 +82,7 @@ func is_packet_lost() -> bool:
 
 func set_state(new_state: int) -> void:
 	$MeshInstance3D.mesh.material.albedo_color = states[new_state]
+	$MeshInstance3D.mesh.material.albedo_color.a = 0.5
 
 func set_lerp(val: bool) -> void:
 	_lerp = val
@@ -135,6 +136,8 @@ var _end_angles: Vector3
 
 var _state_progress: float = 0.0
 var _state_progress_factor: float = 1.0
+
+var _last_state: int = 0
 
 func _ready() -> void:
 	_start_pos = get_parent().position
@@ -282,7 +285,7 @@ func get_pos_state_data(data: StateData) -> Vector3:
 	var y = data.get_value(StateData3D.POS_Y)
 	var z = data.get_value(StateData3D.POS_Z)
 	
-	var offset = -4.0
+	var offset = -5.0
 	
 	_last_pos = Vector3(x + offset if x else _last_pos.x, y if y else _last_pos.y, z if z else _last_pos.z)
 	
@@ -299,7 +302,8 @@ func get_rot_state_data(data: StateData) -> Vector3:
 
 func get_state_data(data: StateData) -> int:
 	var val = data.get_value(StateData.STATE)
-	return val if val else get_parent().state
+	_last_state = val if val else _last_state
+	return val if val else _last_state
 
 func get_tick(array: Array) -> int:
 	return array.get(0)

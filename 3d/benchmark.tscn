@@ -37,7 +37,7 @@ func despawn_object() -> void:
 func add_unit(id: int = id_counter) -> void:
 	var new_unit = unit_scene.instantiate()
 	new_unit.id = id
-	new_unit.position.x = 2 + randi_range(-2, 2)
+	new_unit.position.x = 3 + randi_range(-2, 2)
 	new_unit.position.y = randi_range(-2, 2)
 	new_unit.position.z = randi_range(-2, 2)
 	

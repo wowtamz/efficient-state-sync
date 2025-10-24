@@ -14,9 +14,9 @@ var states: Dictionary = {
 
 var id: int = 0
 
-var movement_area = Vector3(4, 4, 4)
+var movement_area = Vector3(8, 4, 8)
 var move_dir = Vector3(0, 0, 0)
-var move_speed = 2
+var move_speed = 4.0
 
 var state: int = 0
 var changes_state: bool = false
@@ -28,7 +28,7 @@ var _angle_x: float = 0.0
 var _angle_y: float = 0.0
 var _angle_z: float = 0.0
 
-var _ticks: int = 10
+var _ticks: int = 5
 var _counter: float = 0.0
 
 var _send_rate: int = 30
@@ -124,7 +124,7 @@ func process_movement(delta: float) -> void:
 		position += move_dir * move_speed * delta
 	if position.x > movement_area.x or position.x < 0:
 		move_dir.x *= -1
-	if position.y > movement_area.y or position.y < 0:
+	if position.y > movement_area.y or position.y < -4:
 		move_dir.y *= -1
 	if position.z > movement_area.z or position.z < 0:
 		move_dir.z *= -1
