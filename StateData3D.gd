@@ -17,12 +17,12 @@ extends StateData
 # Example: [0, 1, 0, 0, 0, 0, 1] -> Only contains POSY and STATE data
 
 # Value indicies
-const POS_X = 1
-const POS_Y = 2
-const POS_Z = 3
-const ROT_X = 4
-const ROT_Y = 5
-const ROT_Z = 6
+const POS_X = 2
+const POS_Y = 3
+const POS_Z = 4
+const ROT_X = 5
+const ROT_Y = 6
+const ROT_Z = 7
 
 ## Amount of bits used to represent [member _map]. Equivalent 
 ## to the maximum possible values which can be encoded into [member _map].

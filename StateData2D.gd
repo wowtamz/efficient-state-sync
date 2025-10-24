@@ -7,13 +7,13 @@ extends StateData
 ## sending it over the network with as little size as possible.
 
 # Value indicies
-const POS_X = 1
-const POS_Y = 2
-const ROT = 3
+const POS_X = 2
+const POS_Y = 3
+const ROT = 4
 
 ## Amount of bits used to represent [member _map]. Equivalent 
 ## to the maximum possible values which can be encoded into [member _map].
-const ENCODED_BITS = 4
+const ENCODED_BITS = 5
 
 func _init(data: Array = [], map: PackedInt32Array = []) -> void:
 	super._init(data, map, ENCODED_BITS)

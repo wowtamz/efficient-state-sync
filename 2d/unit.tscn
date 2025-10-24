@@ -26,11 +26,10 @@ var move_vertially: bool = false
 var move_horizontally: bool = false
 
 var _angle: float = 0.0
-var _ticks: int = 10
+var _ticks: int = 5
 var _counter: float = 0.0
 
 var _send_rate: int = 30
-var _counter2: float = 0.0
 
 var last_pos_x: float = 0.0
 var last_pos_y: float = 0.0
@@ -83,6 +82,7 @@ func process_states(delta: float) -> void:
 
 func get_packet() -> Variant:
 	var packet = StateData2D.new()
+	
 	if state != last_state:
 		packet.append(StateData2D.STATE, state)
 		last_state = state
@@ -97,6 +97,8 @@ func get_packet() -> Variant:
 		last_rot = rotation
 
 	if packet.has_data():
+		packet.get_data().push_front(get_parent().get_time())
+		packet.get_map().insert(0, StateData2D.TIME)
 		return packet
 	return null
 

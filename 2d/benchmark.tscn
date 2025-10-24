@@ -7,13 +7,15 @@ var unit_scene: PackedScene = preload(\"res://2d/unit.tscn\")
 var shadow_scene: PackedScene = preload(\"res://2d/shadow.tscn\")
 
 var sent_bytes: int = 0
-var send_rate: int = 30
+var send_rate: int = 15
 var _counter: float = 0.0
 var _send_rate_counter: float = 0.0
 var _use_batching: bool = false
 
 var id_counter = 0
 var shadows := Dictionary()
+
+var time: int = 0
 
 func _ready() -> void:
 	connect_buttons()
@@ -49,16 +51,25 @@ func add_shadow(id: int = id_counter) -> void:
 	var new_shadow = shadow_scene.instantiate()
 	new_shadow.id = id_counter
 	add_child(new_shadow)
+	new_shadow.set_lerp($ui/b_lerp.button_pressed)
 
 func connect_buttons() -> void:
 	$ui/b_add.connect(\"pressed\", Callable(self, \"spawn_object\"))
 	$ui/b_remove.connect(\"pressed\", Callable(self, \"despawn_object\"))
+	$ui/b_lerp.connect(\"toggled\", Callable(self, \"set_use_lerp\"))
 	$ui/b_batch.connect(\"toggled\", Callable(self, \"set_use_batching\"))
 	$ui/b_vert.connect(\"toggled\", Callable(self, \"set_move_vertically\"))
 	$ui/b_hor.connect(\"toggled\", Callable(self, \"set_move_horizontally\"))
 	$ui/b_state.connect(\"toggled\", Callable(self, \"set_change_state\"))
 	$ui/b_rotation.connect(\"toggled\", Callable(self, \"apply_rotation\"))
 	$ui/b_packet_count/spinbox.connect(\"value_changed\", Callable(self, \"set_send_rate\"))
+	$ui/b_latency/spinbox.connect(\"value_changed\", Callable(self, \"set_latency\"))
+	$ui/b_jitter/spinbox.connect(\"value_changed\", Callable(self, \"set_jitter\"))
+	$ui/b_packet_loss/spinbox.connect(\"value_changed\", Callable(self, \"set_packet_loss\"))
+
+func set_use_lerp(val: bool):
+	for node in get_tree().get_nodes_in_group(\"shadow\"):
+		node.set_lerp(val)
 
 func set_use_batching(val: bool):
 	_use_batching = val
@@ -82,6 +93,18 @@ func set_move_horizontally(val: bool) -> void:
 func set_send_rate(val: int) -> void:
 	send_rate = val
 
+func set_latency(ms: float) -> void:
+	for node in get_tree().get_nodes_in_group(\"shadow\"):
+		node.set_latency(ms)
+
+func set_jitter(ms: float) -> void:
+	for node in get_tree().get_nodes_in_group(\"shadow\"):
+		node.set_jitter(ms)
+
+func set_packet_loss(val: float) -> void:
+	for node in get_tree().get_nodes_in_group(\"shadow\"):
+		node.set_packet_loss(val)
+
 func _process(delta: float) -> void:
 	process_state_sync(delta)
 	process_send_rate(delta)
@@ -91,6 +114,8 @@ func process_state_sync(delta: float) -> void:
 	_send_rate_counter += delta
 	if _send_rate_counter > 1.0 / float(send_rate):
 		_send_rate_counter = 0.0
+		time += 1
+		time = time % 65536
 		var batch_data: Dictionary[int, StateData] = {}
 		for node in get_tree().get_nodes_in_group(\"unit\"):
 			var packet = node.get_packet()
@@ -114,14 +139,14 @@ func on_receive_batch(bytes: PackedByteArray) -> void:
 		var shadow = get_shadow(key)
 		if shadow:
 			var state_data: StateData = batch.get_data()[key]
-			shadow.sync_state(state_data)
+			shadow.on_receive_packet(state_data.to_bytes())
 
 func process_send_rate(delta: float) -> void:
 	_counter += delta
 	if _counter >= 1.0:
 		var bits_per_sec = sent_bytes * 8
 		$ui/bps.text = \"%.2f kbits/sec\" % (float(bits_per_sec) / 1000.0) if bits_per_sec > 500 else \"%d bits/sec\" % bits_per_sec
-		sent_bytes = 0.0
+		sent_bytes = 0
 		_counter = 0.0
 
 func add_sent_bytes(amount: int) -> void:
@@ -130,6 +155,9 @@ func add_sent_bytes(amount: int) -> void:
 
 func get_sent_bits() -> int:
 	return sent_bytes * 8
+
+func get_time() -> int:
+	return time
 
 func get_unit(id: int) -> Node2D:
 	for node in get_tree().get_nodes_in_group(\"unit\"):
@@ -163,7 +191,7 @@ anchor_right = 1.0
 offset_bottom = 82.0
 grow_horizontal = 2
 size_flags_horizontal = 4
-columns = 10
+columns = 6
 
 [node name="bps" type="Label" parent="ui"]
 custom_minimum_size = Vector2(128, 0)
@@ -175,10 +203,6 @@ custom_minimum_size = Vector2(128, 0)
 layout_mode = 2
 text = "units: 0"
 
-[node name="vsep" type="VSeparator" parent="ui"]
-layout_mode = 2
-size_flags_horizontal = 0
-
 [node name="b_add" type="Button" parent="ui"]
 layout_mode = 2
 text = "Add unit"
@@ -186,6 +210,11 @@ text = "Add unit"
 [node name="b_remove" type="Button" parent="ui"]
 layout_mode = 2
 text = "Remove unit"
+
+[node name="b_lerp" type="Button" parent="ui"]
+layout_mode = 2
+toggle_mode = true
+text = "Use lerp"
 
 [node name="b_batch" type="Button" parent="ui"]
 layout_mode = 2
@@ -227,4 +256,41 @@ text = "packets/sec"
 
 [node name="spinbox" type="SpinBox" parent="ui/b_packet_count"]
 layout_mode = 2
-value = 30.0
+value = 15.0
+
+[node name="b_latency" type="HBoxContainer" parent="ui"]
+layout_mode = 2
+
+[node name="label" type="Label" parent="ui/b_latency"]
+layout_mode = 2
+text = "latency in ms"
+
+[node name="spinbox" type="SpinBox" parent="ui/b_latency"]
+layout_mode = 2
+max_value = 1000.0
+step = 0.5
+value = 100.0
+
+[node name="b_jitter" type="HBoxContainer" parent="ui"]
+layout_mode = 2
+
+[node name="label" type="Label" parent="ui/b_jitter"]
+layout_mode = 2
+text = "jitter in ms"
+
+[node name="spinbox" type="SpinBox" parent="ui/b_jitter"]
+layout_mode = 2
+max_value = 250.0
+value = 10.0
+
+[node name="b_packet_loss" type="HBoxContainer" parent="ui"]
+layout_mode = 2
+
+[node name="label" type="Label" parent="ui/b_packet_loss"]
+layout_mode = 2
+text = "pecket loss in %"
+
+[node name="spinbox" type="SpinBox" parent="ui/b_packet_loss"]
+layout_mode = 2
+max_value = 1.0
+step = 0.01

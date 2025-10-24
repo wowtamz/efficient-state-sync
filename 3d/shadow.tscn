@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3 uid="uid://1smt4uyggw43"]
+[gd_scene load_steps=5 format=3 uid="uid://1smt4uyggw43"]
 
 [sub_resource type="GDScript" id="GDScript_shm6d"]
 script/source = "extends Node3D
@@ -14,9 +14,29 @@ var states: Dictionary = {
 var id: int = 0
 var state: int = 0 : set = set_state
 
+var _latency: float = 0.2
+var _jitter: float = 0.01
+var _packet_loss: float = 0.0
+
+var _lerp: bool = false
+
+func _ready() -> void:
+	pass
+
 func on_receive_packet(packet: PackedByteArray) -> void:
+	
+	if is_packet_lost(): # Simulate packet loss
+		return
 	var state_data: StateData = StateData3D.from_bytes(packet)
-	sync_state(state_data)
+	
+	var jitter = -_jitter if randi_range(0, 1) == 1 else _jitter
+	
+	var lat = _latency + jitter
+	await get_tree().create_timer(lat).timeout
+	if _lerp:
+		$interpolate.on_new_snapshot(state_data)
+	else:
+		sync_state(state_data)
 
 func sync_state(state_data: StateData) -> void:
 	var pos_x = null
@@ -28,24 +48,15 @@ func sync_state(state_data: StateData) -> void:
 	
 	var _state = null
 	
-	var data = state_data.get_data()
-	var map = state_data.get_map()
-	for i in map:
-		match i:
-			StateData3D.POS_X:
-				pos_x = data.pop_front()
-			StateData3D.POS_Y:
-				pos_y = data.pop_front()
-			StateData3D.POS_Z:
-				pos_z = data.pop_front()
-			StateData3D.ROT_X:
-				rot_x = data.pop_front()
-			StateData3D.ROT_Y:
-				rot_y = data.pop_front()
-			StateData3D.ROT_Z:
-				rot_z = data.pop_front()
-			StateData3D.STATE:
-				_state = data.pop_front()
+	pos_x = state_data.get_value(StateData3D.POS_X)
+	pos_y = state_data.get_value(StateData3D.POS_Y)
+	pos_z = state_data.get_value(StateData3D.POS_Z)
+	
+	rot_x = state_data.get_value(StateData3D.ROT_X)
+	rot_y = state_data.get_value(StateData3D.ROT_Y)
+	rot_z = state_data.get_value(StateData3D.ROT_Z)
+	
+	_state = state_data.get_value(StateData3D.STATE)
 	
 	if pos_x:
 		position.x = -4.0 + pos_x
@@ -62,20 +73,246 @@ func sync_state(state_data: StateData) -> void:
 	if _state:
 		state = _state
 
+func is_packet_lost() -> bool:
+	if _packet_loss:
+		var rand_val = randi_range(0, int(1.0 / _packet_loss) - 1)
+		if rand_val == 0:
+			return true
+	return false
+
 func set_state(new_state: int) -> void:
 	$MeshInstance3D.mesh.material.albedo_color = states[new_state]
+
+func set_lerp(val: bool) -> void:
+	_lerp = val
+	$interpolate._last_pos = position
+	$interpolate.set_process(val)
+
+func set_latency(ms: float) -> void:
+	_latency = ms / 1000.0
+
+func set_jitter(ms: float) -> void:
+	_jitter = ms / 1000.0
+
+func set_packet_loss(val: float) -> void:
+	_packet_loss = val
 "
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_shm6d"]
 transparency = 1
 blend_mode = 1
-albedo_color = Color(1, 1, 1, 0.8)
+diffuse_mode = 1
+albedo_color = Color(1, 1, 1, 0.5176471)
 
 [sub_resource type="BoxMesh" id="BoxMesh_gt6dh"]
 material = SubResource("StandardMaterial3D_shm6d")
+
+[sub_resource type="GDScript" id="GDScript_eo6i4"]
+script/source = "extends Node
+
+var _pos_buffer: Array
+var _rot_buffer: Array
+var _state_buffer: Array
+
+var _end_state: int = 0
+
+var _start_pos: Vector3
+var _end_pos: Variant = null
+var _last_pos: Vector3
+var _last_rot: Vector3
+
+var _last_pos_tick: int = 0
+var _last_rot_tick: int = 0
+var _last_state_tick: int = 0
+var _lerp_progress: float = 0.0
+var _lerp_factor: float = 1.0
+var _lerp_limit: float = 1.0
+
+var _lerp_angle_progress: float = 0.0
+var _lerp_angle_speed: float = 1.0
+var _start_angles: Vector3
+var _end_angles: Vector3
+
+var _state_progress: float = 0.0
+var _state_progress_factor: float = 1.0
+
+func _ready() -> void:
+	_start_pos = get_parent().position
+	set_process(false)
+
+func update_lerp_pos() -> void:
+	_lerp_progress = 0.0
+	_start_pos = get_parent().position
+	
+	while _pos_buffer.size() > 4:
+		_pos_buffer.pop_front()
+	
+	if _pos_buffer.is_empty() or _pos_buffer.size() == 1:
+		_lerp_progress = 1.0
+	else:
+		var next_state = _pos_buffer.pop_front()
+		_end_pos = get_data(next_state)
+		_lerp_factor = 1.0 / float(abs(get_tick(next_state) - _last_pos_tick) % 65536)
+		var delta_t = get_tick(next_state) - _last_pos_tick
+		
+		if delta_t > 15:
+			get_parent().position = _end_pos
+			_lerp_progress = 1.0
+		assert(delta_t >= 0)
+		_last_pos_tick = get_tick(next_state)
+		if _pos_buffer.size() == 2:
+			_lerp_factor *= 0.75
+		elif _pos_buffer.size() == 3:
+			_lerp_factor *= 0.9
+		else:
+			_lerp_factor *= 1.0
+
+func process_pos_lerp(delta: float) -> void:
+	
+	if _lerp_progress >= _lerp_limit:
+		update_lerp_pos()
+	
+	var packets_per_sec: float = get_parent().get_parent().get_parent().send_rate
+	var frames_per_sec: float = 1.0 / delta
+	var steps_per_frame: float = packets_per_sec / frames_per_sec
+	_lerp_progress += steps_per_frame * _lerp_factor
+	if _end_pos:
+		get_parent().position = _start_pos.lerp(_end_pos, _lerp_progress)
+
+func update_lerp_rot() -> void:
+	_lerp_angle_progress = 0.0
+	_start_angles = get_parent().rotation
+	
+	while _rot_buffer.size() > 4:
+		_rot_buffer.pop_front()
+	
+	if _rot_buffer.is_empty() or _rot_buffer.size() == 1:
+		_lerp_angle_progress = 1.0
+	else:
+		var next_state = _rot_buffer.pop_front()
+		_end_angles = get_data(next_state)
+		_lerp_angle_speed = 1.0 / float(abs(get_tick(next_state) - _last_rot_tick) % 65536)
+		var delta_t = get_tick(next_state) - _last_rot_tick
+		
+		if delta_t > 15:
+			get_parent().rotation = _end_angles
+			_lerp_angle_progress = 1.0
+		
+		assert(delta_t >= 0)
+		_last_rot_tick = get_tick(next_state)
+		
+		if _rot_buffer.size() == 2:
+			_lerp_angle_speed *= 0.75
+		elif _rot_buffer.size() == 3:
+			_lerp_angle_speed *= 0.9
+		else:
+			_lerp_angle_speed *= 1.0
+
+func process_rot_lerp(delta: float) -> void:
+	if _lerp_angle_progress >= 1.0:
+		update_lerp_rot()
+	
+	var packets_per_sec: float = get_parent().get_parent().get_parent().send_rate
+	var frames_per_sec: float = 1.0 / delta
+	var steps_per_frame: float = packets_per_sec / frames_per_sec
+	_lerp_angle_progress += steps_per_frame * _lerp_angle_speed
+	
+	var x_angle = lerp_angle(_start_angles.x, _end_angles.x, _lerp_angle_progress)
+	var y_angle = lerp_angle(_start_angles.y, _end_angles.y, _lerp_angle_progress)
+	var z_angle = lerp_angle(_start_angles.z, _end_angles.z, _lerp_angle_progress)
+	
+	get_parent().rotation = Vector3(x_angle, y_angle, z_angle)
+
+func process_state_switch(delta: float) -> void:
+	if _state_progress >= 1.0:
+		get_parent().set_state(_end_state)
+		_state_progress = 0.0
+		while _state_buffer.size() > 4:
+			_state_buffer.pop_front()
+		
+		if _state_buffer.is_empty() or _state_buffer.size() == 1:
+			_state_progress = 1.0
+		else:
+			var next_state = _state_buffer.pop_front()
+			_state_progress_factor = 1.0 / float(abs(get_tick(next_state) - _last_state_tick) % 65536)
+			_last_state_tick = get_tick(next_state)
+			_end_state = get_data(next_state)
+			var delta_t = get_tick(next_state) - _last_state_tick
+		
+			if delta_t > 15:
+				get_parent().set_state(_end_state)
+				_state_progress_factor = 1.0
+			
+			if _state_buffer.size() == 2:
+				_state_progress_factor *= 0.75
+			elif _state_buffer.size() == 3:
+				_state_progress_factor *= 0.9
+			else:
+				_state_progress_factor *= 1.0
+	
+	var packets_per_sec: float = get_parent().get_parent().get_parent().send_rate
+	var frames_per_sec: float = 1.0 / delta
+	var steps_per_frame: float = packets_per_sec / frames_per_sec
+	_state_progress += steps_per_frame * 1.0
+
+func _process(delta: float) -> void:
+	process_pos_lerp(delta)
+	process_rot_lerp(delta)
+	process_state_switch(delta)
+
+func on_new_snapshot(state_data: StateData) -> void:
+	var prev_t = get_tick(_pos_buffer.back()) if not _pos_buffer.is_empty() else -1
+	var t = state_data.get_value(StateData.TIME)
+	
+	if t > prev_t or (t < 100 and prev_t > 65000):
+		_pos_buffer.append(
+			[t, get_pos_state_data(state_data)]
+		)
+		
+		_rot_buffer.append(
+			[t, get_rot_state_data(state_data)]
+		)
+		
+		_state_buffer.append(
+			[t, get_state_data(state_data)]
+		)
+
+func get_pos_state_data(data: StateData) -> Vector3:
+	var x = data.get_value(StateData3D.POS_X)
+	var y = data.get_value(StateData3D.POS_Y)
+	var z = data.get_value(StateData3D.POS_Z)
+	
+	var offset = -4.0
+	
+	_last_pos = Vector3(x + offset if x else _last_pos.x, y if y else _last_pos.y, z if z else _last_pos.z)
+	
+	return Vector3(x + offset if x else _last_pos.x, y if y else _last_pos.y, z if z else _last_pos.z)
+
+func get_rot_state_data(data: StateData) -> Vector3:
+	var x = data.get_value(StateData3D.ROT_X)
+	var y = data.get_value(StateData3D.ROT_Y)
+	var z = data.get_value(StateData3D.ROT_Y)
+	
+	_last_rot = Vector3(x if x else _last_rot.x, y if y else _last_rot.y, z if z else _last_rot.z)
+	
+	return Vector3(x if x else _last_rot.x, y if y else _last_rot.y, z if z else _last_rot.z)
+
+func get_state_data(data: StateData) -> int:
+	var val = data.get_value(StateData.STATE)
+	return val if val else get_parent().state
+
+func get_tick(array: Array) -> int:
+	return array.get(0)
+
+func get_data(array: Array) -> Variant:
+	return array.get(1)
+"
 
 [node name="shadow" type="Node3D" groups=["shadow"]]
 script = SubResource("GDScript_shm6d")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]
 mesh = SubResource("BoxMesh_gt6dh")
+
+[node name="interpolate" type="Node" parent="."]
+script = SubResource("GDScript_eo6i4")

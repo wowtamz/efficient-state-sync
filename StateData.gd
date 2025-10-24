@@ -22,8 +22,17 @@ class_name StateData
 #   Data: [val_1]                 Map: [0, 1, 0]   # only val_1 present
 #   Data: [state, val_2]          Map: [1, 0, 1]   # state and val_2 present
 
- ## Index of the state value.
-const STATE = 0
+## Default data type.
+const DEFAULT_TYPE = "half"
+## Index of the time value.
+const TIME = 0
+## Index of the state value.
+const STATE = 1
+
+static var _types = {
+	TIME: "u16",
+	STATE: "u8",
+}
 
 ## Contains the state values.
 var _data: Array = []
@@ -32,7 +41,7 @@ var _map: PackedInt32Array = []
 
 ## Creates a new [StateData] object with passed values for [member StateData.data] and [member StateData.map]
 ## with [member StateData.map] resized to a length of [param _encoded_bits].
-func _init(data: Array = [], map: PackedInt32Array = [], _encoded_bits: int = 4) -> void:
+func _init(data: Array = [], map: PackedInt32Array = [], _encoded_bits: int = 5) -> void:
 	_data = data
 	_map = map.slice(0, _encoded_bits)
 
@@ -42,6 +51,10 @@ func _init(data: Array = [], map: PackedInt32Array = [], _encoded_bits: int = 4)
 func append(index: int, value: Variant):
 	_map.append(index)
 	_data.append(value)
+
+func get_value(value_index: int) -> Variant:
+	var data_index = _map.find(value_index)
+	return _data[data_index] if data_index >= 0 else null
 
 func equals(state: StateData) -> bool:
 	return _data == state.get_data() and _map == state.get_map()
@@ -63,22 +76,20 @@ func to_bytes() -> PackedByteArray:
 	var buffer := StreamPeerBuffer.new()
 	var map_as_bits = map_to_bits()
 	buffer.put_u8(map_as_bits)
-	for val in _data:
-		if typeof(val) == TYPE_FLOAT:
-			buffer.put_half(val)
-		elif typeof(val) == TYPE_INT:
-			buffer.put_u8(val)
-		else:
-			printerr("Unsupported data type '%s' with value '%s' while writing to byte array." % [typeof(val), str(val)])
-			
+	
+	for i in range(_data.size()):
+		var key = _map[i]
+		var type = _types.get(key, DEFAULT_TYPE)
+		var value = _data[i]
+		if type_string:
+			buffer.call("put_%s" % type, value)
 	return buffer.data_array
 
 ## Returns [param bytes] as a new [StateData] object. [br]
 ## With [param encoded_bits] specifying the maximum possbile values encoded in [member StateDate.map].
-static func from_bytes(bytes: PackedByteArray, encoded_bits: int = 4) -> StateData:
+static func from_bytes(bytes: PackedByteArray, encoded_bits: int = 5) -> StateData:
 	var buffer := StreamPeerBuffer.new()
 	buffer.data_array = bytes
-	
 	var decoded_map: PackedInt32Array = StateData.bits_to_map(buffer.get_u8(), encoded_bits)
 	var decoded_data: Array = []
 	for i in decoded_map:
@@ -88,11 +99,12 @@ static func from_bytes(bytes: PackedByteArray, encoded_bits: int = 4) -> StateDa
 	return StateData.new(decoded_data, decoded_map, encoded_bits)
 
 static func value_from_bytes(buffer: StreamPeerBuffer, index: int) -> Variant:
-	@warning_ignore("incompatible_ternary")
-	var val: Variant = buffer.get_u8() if index == STATE else buffer.get_half()
+	var type = _types.get(index, DEFAULT_TYPE)
+	var val: Variant = buffer.call("get_%s" % type)
+	#var val: Variant = buffer.get_u8() if index == STATE else buffer.get_half()
 	if typeof(val) == TYPE_FLOAT:
 		var step = 0.1
-		## Round decoded float values to the nearest multiple of step
+		# Round decoded float values to the nearest multiple of step
 		val = snappedf(val, step)
 	return val
 
