@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://dx11sgjuj2s2j"]
+[gd_scene format=3 uid="uid://dx11sgjuj2s2j"]
 
 [sub_resource type="GDScript" id="GDScript_5df01"]
 script/source = "extends Control
@@ -175,7 +175,7 @@ func get_shadow(id: int) -> Node2D:
 	return null
 "
 
-[node name="benchmark" type="Control"]
+[node name="benchmark" type="Control" unique_id=691350348]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -184,7 +184,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = SubResource("GDScript_5df01")
 
-[node name="ui" type="GridContainer" parent="."]
+[node name="ui" type="GridContainer" parent="." unique_id=1712700605]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
@@ -193,104 +193,104 @@ grow_horizontal = 2
 size_flags_horizontal = 4
 columns = 6
 
-[node name="bps" type="Label" parent="ui"]
+[node name="bps" type="Label" parent="ui" unique_id=2001000056]
 custom_minimum_size = Vector2(128, 0)
 layout_mode = 2
 text = "kbits/sec"
 
-[node name="units" type="Label" parent="ui"]
+[node name="units" type="Label" parent="ui" unique_id=132753072]
 custom_minimum_size = Vector2(128, 0)
 layout_mode = 2
 text = "units: 0"
 
-[node name="b_add" type="Button" parent="ui"]
+[node name="b_add" type="Button" parent="ui" unique_id=1137651449]
 layout_mode = 2
 text = "Add unit"
 
-[node name="b_remove" type="Button" parent="ui"]
+[node name="b_remove" type="Button" parent="ui" unique_id=1022884473]
 layout_mode = 2
 text = "Remove unit"
 
-[node name="b_lerp" type="Button" parent="ui"]
+[node name="b_lerp" type="Button" parent="ui" unique_id=625622424]
 layout_mode = 2
 toggle_mode = true
 text = "Use lerp"
 
-[node name="b_batch" type="Button" parent="ui"]
+[node name="b_batch" type="Button" parent="ui" unique_id=214411418]
 layout_mode = 2
 focus_mode = 0
 toggle_mode = true
 text = "Use batching"
 
-[node name="b_vert" type="Button" parent="ui"]
+[node name="b_vert" type="Button" parent="ui" unique_id=712542606]
 layout_mode = 2
 focus_mode = 0
 toggle_mode = true
 text = "Move vertically"
 
-[node name="b_hor" type="Button" parent="ui"]
+[node name="b_hor" type="Button" parent="ui" unique_id=309381005]
 layout_mode = 2
 focus_mode = 0
 toggle_mode = true
 text = "Move horizontally"
 
-[node name="b_state" type="Button" parent="ui"]
+[node name="b_state" type="Button" parent="ui" unique_id=587587540]
 layout_mode = 2
 focus_mode = 0
 toggle_mode = true
 text = "Change state"
 
-[node name="b_rotation" type="Button" parent="ui"]
+[node name="b_rotation" type="Button" parent="ui" unique_id=1792778284]
 layout_mode = 2
 focus_mode = 0
 toggle_mode = true
 text = "Apply Rotation
 "
 
-[node name="b_packet_count" type="HBoxContainer" parent="ui"]
+[node name="b_packet_count" type="HBoxContainer" parent="ui" unique_id=636957749]
 layout_mode = 2
 
-[node name="label" type="Label" parent="ui/b_packet_count"]
+[node name="label" type="Label" parent="ui/b_packet_count" unique_id=1640933737]
 layout_mode = 2
 text = "packets/sec"
 
-[node name="spinbox" type="SpinBox" parent="ui/b_packet_count"]
+[node name="spinbox" type="SpinBox" parent="ui/b_packet_count" unique_id=1653808617]
 layout_mode = 2
 value = 15.0
 
-[node name="b_latency" type="HBoxContainer" parent="ui"]
+[node name="b_latency" type="HBoxContainer" parent="ui" unique_id=653125150]
 layout_mode = 2
 
-[node name="label" type="Label" parent="ui/b_latency"]
+[node name="label" type="Label" parent="ui/b_latency" unique_id=563530907]
 layout_mode = 2
 text = "latency in ms"
 
-[node name="spinbox" type="SpinBox" parent="ui/b_latency"]
+[node name="spinbox" type="SpinBox" parent="ui/b_latency" unique_id=1791374795]
 layout_mode = 2
 max_value = 1000.0
 step = 0.5
 value = 100.0
 
-[node name="b_jitter" type="HBoxContainer" parent="ui"]
+[node name="b_jitter" type="HBoxContainer" parent="ui" unique_id=2107857538]
 layout_mode = 2
 
-[node name="label" type="Label" parent="ui/b_jitter"]
+[node name="label" type="Label" parent="ui/b_jitter" unique_id=1944300602]
 layout_mode = 2
 text = "jitter in ms"
 
-[node name="spinbox" type="SpinBox" parent="ui/b_jitter"]
+[node name="spinbox" type="SpinBox" parent="ui/b_jitter" unique_id=1893886771]
 layout_mode = 2
 max_value = 250.0
 value = 10.0
 
-[node name="b_packet_loss" type="HBoxContainer" parent="ui"]
+[node name="b_packet_loss" type="HBoxContainer" parent="ui" unique_id=224111469]
 layout_mode = 2
 
-[node name="label" type="Label" parent="ui/b_packet_loss"]
+[node name="label" type="Label" parent="ui/b_packet_loss" unique_id=34140307]
 layout_mode = 2
 text = "pecket loss in %"
 
-[node name="spinbox" type="SpinBox" parent="ui/b_packet_loss"]
+[node name="spinbox" type="SpinBox" parent="ui/b_packet_loss" unique_id=2014100738]
 layout_mode = 2
 max_value = 1.0
 step = 0.01
