@@ -59,7 +59,7 @@ func sync_state(state_data: StateData) -> void:
 	_state = state_data.get_value(StateData3D.STATE)
 	
 	if pos_x:
-		position.x = -5.0 + pos_x
+		position.x = 5.0 + pos_x
 	if pos_y:
 		position.y = pos_y
 	if pos_z:
@@ -285,7 +285,7 @@ func get_pos_state_data(data: StateData) -> Vector3:
 	var y = data.get_value(StateData3D.POS_Y)
 	var z = data.get_value(StateData3D.POS_Z)
 	
-	var offset = -5.0
+	var offset = 5.0
 	
 	_last_pos = Vector3(x + offset if x else _last_pos.x, y if y else _last_pos.y, z if z else _last_pos.z)
 	
